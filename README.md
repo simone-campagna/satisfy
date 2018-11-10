@@ -1,2 +1,3 @@
 # satisfy
-Python library to solve Constraint Satisfaction Problems
+
+Python library to solve Constraint Satisfaction Problems.
