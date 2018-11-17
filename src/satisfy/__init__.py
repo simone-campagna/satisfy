@@ -1,3 +1,3 @@
 from .model import Model
 from .objective import Minimize, Maximize
-from .solver import Solver, VarSelectionPolicy
+from .solver import Solver, ModelSolver, VarSelectionPolicy

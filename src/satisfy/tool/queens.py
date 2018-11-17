@@ -1,7 +1,7 @@
 import collections
 import itertools
 
-from .solver import ModelSolver
+from ..solver import ModelSolver
 
 __all__ = [
     'QueensSolver',

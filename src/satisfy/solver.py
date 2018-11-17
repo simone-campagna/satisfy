@@ -12,8 +12,8 @@ from .utils import INFINITY, Timer, SolveStats
 __all__ = [
     'Solver',
     'VarSelectionPolicy',
-    'ModelSolverMixin',
-    'ModelOptimizerMixin',
+    'ModelSolver',
+    'ModelOptimizer',
 ]
 
 ModelInfo = collections.namedtuple(
@@ -223,9 +223,10 @@ class Solver(object):
             domain = domains.get(var_name, None)
             if domain is None:
                 domain = []
+                v_ad_constraints = var_ad_constraints.get(var_name, ())
                 for value in variables[var_name].domain:
                     substitution[var_name] = value
-                    for c_var in var_ad_constraints.get(var_name, ()):
+                    for c_var in v_ad_constraints:
                         if substitution.get(c_var, None) == value:
                             # var_name == value is *not* acceptable
                             # because it breaks some AllDifferentConstraint
