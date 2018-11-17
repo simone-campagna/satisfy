@@ -2,6 +2,10 @@ import argparse
 
 from ..utils import INFINITY
 
+from .demo_cryptarithm import (
+    cryptarithm,
+    default_cryptarithm_source,
+)
 from .einstein_riddle import (
     EinsteinRiddleSolver,
 )
@@ -32,6 +36,16 @@ from .demo_sudoku import (
 __all__ = [
     'main',
 ]
+
+
+def type_on_off(x):
+    x = x.lower()
+    if x in {'on', 'true'}:
+        return True
+    elif x in {'off', 'false'}:
+        return False
+    else:
+        return bool(int(x))
 
 
 def main():
@@ -170,8 +184,33 @@ Solve the Einstein's riddle:
         function=einstein,
         function_args=[] + solve_args)
 
+    cryptarithm_parser = subparsers.add_parser(
+        "cryptarithm",
+        description="""\
+Solve cryptarithms, for instance:
+
+{example}
+""" + default_cryptarithm_source(),
+        **common_args)
+    cryptarithm_parser.set_defaults(
+        function=cryptarithm,
+        function_args=["source", "avoid_leading_zeros"] + solve_args)
+
+    cryptarithm_parser.add_argument(
+        "-z", "--avoid-leading-zeros",
+        type=type_on_off,
+        nargs='?', const='on',
+        default=True,
+        help="avoid leading zeros in numbers")
+
+    cryptarithm_parser.add_argument(
+        "source",
+        nargs='?', default=None,
+        help="cryptarithm source")
+
     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
-                     graph_labeling_parser, ascii_map_coloring_parser]
+                     graph_labeling_parser, ascii_map_coloring_parser,
+                     cryptarithm_parser]
     for parser in solve_parsers:
         parser.add_argument(
             "-t", "--timeout",

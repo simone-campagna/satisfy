@@ -1,7 +1,3 @@
-import collections
-import itertools
-
-from ..model import Model
 from ..solver import ModelSolver, VarSelectionPolicy
 
 __all__ = [

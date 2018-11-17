@@ -446,9 +446,8 @@ class ModelSolverBase(object):
 
 
 class ModelSolver(ModelSolverBase):
-    @abc.abstractmethod
     def __iter__(self):
-        raise NotImplementedError()
+        yield from self._solver.solve(self._model)
 
 
 class ModelOptimizer(ModelSolverBase):
