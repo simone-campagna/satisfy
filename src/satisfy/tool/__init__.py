@@ -62,6 +62,8 @@ Satisfy tool - show some examples.
 * ascii_map_coloring: solve a map coloring problem based on a simple ascii map
 * queens: solve the N-queens problem, for a chessboard with side N
 * einstein: solve the Einstein's riddle
+* cryptarithm: solve cryptarithms, i.e. arithmetic equations where some numbers
+  are substituted with letters (for instance 'AA3*55==6CAB')
 """,
         **common_args)
 
