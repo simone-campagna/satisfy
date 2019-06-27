@@ -190,7 +190,8 @@ Solve the Einstein's riddle:
 Solve cryptarithms, for instance:
 
 {example}
-""" + default_cryptarithm_source(),
+
+""".format(example=default_cryptarithm_source()),
         **common_args)
     cryptarithm_parser.set_defaults(
         function=cryptarithm,
