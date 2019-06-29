@@ -3,7 +3,7 @@ from .demo_utils import (
     print_solve_stats,
 )
 
-from .cryptarithm import CryptarithmSolver
+from ..cryptarithm import CryptarithmSolver
 
 __all__ = [
     'cryptarithm',

@@ -3,7 +3,7 @@ import itertools
 import operator
 import re
 
-from ..solver import ModelSolver, VarSelectionPolicy
+from .solver import ModelSolver, VarSelectionPolicy
 
 __all__ = [
     'CryptarithmSolver',
@@ -13,8 +13,8 @@ __all__ = [
     
 class CryptarithmSolver(ModelSolver):
     def __init__(self, source, avoid_leading_zeros=True, **args):
-        #if args.get('var_selection_policy', None) is None:
-        #    args['var_selection_policy'] = VarSelectionPolicy.ORDERED
+        if args.get('var_selection_policy', None) is None:
+            args['var_selection_policy'] = VarSelectionPolicy.MIN_BOUND
         super().__init__(**args)
         source = source.upper()
         numbers = set()

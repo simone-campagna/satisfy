@@ -26,7 +26,7 @@ class EinsteinRiddleSolver(ModelSolver):
 
     def __init__(self, **args):
         if args.get('var_selection_policy', None) is None:
-            args['var_selection_policy'] = VarSelectionPolicy.ORDERED
+            args['var_selection_policy'] = VarSelectionPolicy.MIN_BOUND
         super().__init__(**args)
         model = self._model
 
