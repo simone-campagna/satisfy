@@ -118,3 +118,10 @@ class Model(object):
 
     def add_all_different_constraint(self, variables):
         self.add_constraint(AllDifferentConstraint([var.name for var in variables]))
+
+    def get_var_domain(self, var):
+        if isinstance(var, Variable):
+            var_name = var.name
+        else:
+            var_name = var
+        return self._variables[var_name].domain

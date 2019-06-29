@@ -12,12 +12,6 @@ __all__ = [
     'default_sudoku_source',
 ]
 
-from ..sudoku import SudokuSolver
-
-__all__ = [
-    'sudoku',
-]
-
 
 DEFAULT_SUDOKU_SOURCE = """
 [

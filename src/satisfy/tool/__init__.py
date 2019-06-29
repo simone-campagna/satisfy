@@ -24,6 +24,10 @@ from .demo_ascii_map_coloring import (
     ascii_map_coloring,
     default_ascii_map_coloring_source,
 )
+from .demo_nonogram import (
+    nonogram,
+    default_nonogram_source,
+)
 from .demo_queens import (
     queens,
 )
@@ -64,6 +68,7 @@ Satisfy tool - show some examples.
 * einstein: solve the Einstein's riddle
 * cryptarithm: solve cryptarithms, i.e. arithmetic equations where some numbers
   are substituted with letters (for instance 'AA3*55==6CAB')
+* nonogram: solve nonograms
 """,
         **common_args)
 
@@ -137,6 +142,22 @@ The input file is a simple ascii map, for instance:
         function=ascii_map_coloring,
         function_args=["input_file", "colors"] + solve_args)
 
+    nonogram_parser = subparsers.add_parser(
+        "nonogram",
+        description="""\
+Solve a nonogram.
+
+The input file is a JSON file containing a nonogram definition.
+For instance:
+
+{example}
+
+""".format(example=default_nonogram_source()),
+        **common_args)
+    nonogram_parser.set_defaults(
+        function=nonogram,
+        function_args=["input_file", "input_image"] + solve_args)
+
     for parser in knapsack_parser, sudoku_parser, graph_labeling_parser, ascii_map_coloring_parser:
         parser.add_argument(
             "-i", "--input-file",
@@ -144,6 +165,20 @@ The input file is a simple ascii map, for instance:
             default=None,
             type=argparse.FileType('r'),
             help="input filename")
+
+    input_group = nonogram_parser.add_mutually_exclusive_group()
+    input_group.add_argument(
+        "-i", "--input-file",
+        metavar="F",
+        default=None,
+        type=argparse.FileType('r'),
+        help="input filename")
+    input_group.add_argument(
+        "-I", "--input-image",
+        metavar="F",
+        default=None,
+        type=argparse.FileType('r'),
+        help="input image")
 
     graph_labeling_parser.add_argument(
         "-L", "--labels",
@@ -213,7 +248,7 @@ Solve cryptarithms, for instance:
 
     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
                      graph_labeling_parser, ascii_map_coloring_parser,
-                     cryptarithm_parser]
+                     cryptarithm_parser, nonogram_parser]
     for parser in solve_parsers:
         parser.add_argument(
             "-t", "--timeout",

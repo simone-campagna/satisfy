@@ -31,6 +31,10 @@ class VarSelectionPolicy(enum.Enum):
     REVERSED = 1
     RANDOM = 2
     GROUPS = 3
+    MIN_BOUND = 4
+    MAX_BOUND = 5
+    MIN_CONSTRAINT = 6
+    MAX_CONSTRAINT = 7
 
 
 class Solver(object):
@@ -191,6 +195,16 @@ class Solver(object):
             var_names = tuple(var_names)
         elif var_selection_policy is VarSelectionPolicy.REVERSED:
             var_names = tuple(reversed(var_names))
+        elif var_selection_policy is VarSelectionPolicy.MIN_BOUND:
+            # var_names = tuple(sorted(var_names, key=lambda x: len(var_constraints[x]), reverse=False))
+            var_names = tuple(sorted(var_names, key=lambda x: len(model.get_var_domain(x))))
+        elif var_selection_policy is VarSelectionPolicy.MAX_BOUND:
+            # var_names = tuple(sorted(var_names, key=lambda x: len(var_constraints[x]), reverse=False))
+            var_names = tuple(sorted(var_names, key=lambda x: len(model.get_var_domain(x)), reverse=True))
+        elif var_selection_policy is VarSelectionPolicy.MIN_CONSTRAINT:
+            var_names = tuple(sorted(var_names, key=lambda x: len(var_constraints[x])))
+        elif var_selection_policy is VarSelectionPolicy.MAX_CONSTRAINT:
+            var_names = tuple(sorted(var_names, key=lambda x: len(var_constraints[x]), reverse=True))
 
         if not var_names:
             return
