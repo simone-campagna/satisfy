@@ -32,18 +32,18 @@ class NonogramSolver(ModelSolver):
                 rem_size = sum(row) + len(row) - 1
                 for k, size in enumerate(row):
                     offset = size + int(k != len(row) - 1)
-                    end = num_cols - rem_size
+                    end = num_cols - rem_size + 1
                     domain = list(range(start, end))
-                    start_var = model.add_int_variable(name='r{}_{}'.format(r, k), domain=domain)
-                    var_infos[start_var.name] = VarInfo(size=size, start_value=start, end_value=end + size)
-                    # model.add_constraint(start_var + size <= num_cols)  # TODO diff SERVE???
+                    var = model.add_int_variable(name='r{}_{}'.format(r, k), domain=domain)
+                    var_infos[var.name] = VarInfo(size=size, start_value=start, end_value=end + size)
+                    # model.add_constraint(var + size <= num_cols)  # TODO diff SERVE???
                     start += offset
                     rem_size -= offset
                     if cur_vars:
-                        prev_start = cur_vars[-1]
-                        constraint = start_var > prev_start + var_infos[prev_start.name].size
+                        prev_var = cur_vars[-1]
+                        constraint = var > prev_var + var_infos[prev_var.name].size
                         model.add_constraint(constraint)
-                    cur_vars.append(start_var)
+                    cur_vars.append(var)
 
         # add col vars and constraints:
         col_vars = {c: [] for c in range(num_cols)}
@@ -54,38 +54,38 @@ class NonogramSolver(ModelSolver):
                 rem_size = sum(col) + len(col) - 1
                 for k, size in enumerate(col):
                     offset = size + int(k != len(col) - 1)
-                    end = num_rows - rem_size
+                    end = num_rows - rem_size + 1
                     domain = list(range(start, end))
-                    start_var = model.add_int_variable(name='c{}_{}'.format(c, k), domain=domain)
-                    var_infos[start_var.name] = VarInfo(size=size, start_value=start, end_value=end + size)
-                    # model.add_constraint(start_var + size <= num_rows)  # TODO diff SERVE???
+                    var = model.add_int_variable(name='c{}_{}'.format(c, k), domain=domain)
+                    var_infos[var.name] = VarInfo(size=size, start_value=start, end_value=end + size)
+                    # model.add_constraint(var + size <= num_rows)  # TODO diff SERVE???
                     start += offset
                     rem_size -= offset
                     if cur_vars:
-                        prev_start = cur_vars[-1]
-                        constraint = start_var > prev_start + var_infos[prev_start.name].size
+                        prev_var = cur_vars[-1]
+                        constraint = var > prev_var + var_infos[prev_var.name].size
                         model.add_constraint(constraint)
-                    cur_vars.append(start_var)
+                    cur_vars.append(var)
 
         # add row<>col constraints:
         for r in range(num_rows):
             for c in range(num_cols):
                 r_expr_list = []
-                for start_var in row_vars[r]:
-                    size = var_infos[start_var.name].size
-                    var_info = var_infos[start_var.name]
+                for var in row_vars[r]:
+                    size = var_infos[var.name].size
+                    var_info = var_infos[var.name]
                     if var_info.start_value <= c < var_info.end_value:
-                        r_expr_list.append((start_var <= c) & (c < start_var + size))
+                        r_expr_list.append((var <= c) & (c < var + size))
                     # else:
-                    #     print("r: {}: discard {} ({})".format(start_var.name, c, var_info), model.get_var_domain(start_var))
+                    #     print("r: {}: discard {} ({})".format(var.name, c, var_info), model.get_var_domain(var))
                 c_expr_list = []
-                for start_var in col_vars[c]:
-                    size = var_infos[start_var.name].size
-                    var_info = var_infos[start_var.name]
+                for var in col_vars[c]:
+                    size = var_infos[var.name].size
+                    var_info = var_infos[var.name]
                     if var_info.start_value <= r < var_info.end_value:
-                        c_expr_list.append((start_var <= r) & (r < start_var + size))
+                        c_expr_list.append((var <= r) & (r < var + size))
                     # else:
-                    #     print("c: {}: discard {} ({})".format(start_var.name, r, var_info), model.get_var_domain(start_var))
+                    #     print("c: {}: discard {} ({})".format(var.name, r, var_info), model.get_var_domain(var))
                 if r_expr_list or c_expr_list:
                     if r_expr_list:
                         r_expr = sum(r_expr_list)
@@ -121,9 +121,9 @@ class NonogramSolver(ModelSolver):
         for solution in solver.solve(model):
             pixmap = [[0 for _ in range(num_cols)] for _ in range(num_rows)]
             for r, cur_vars in row_vars.items():
-                for start_var in cur_vars:
-                    start = solution[start_var.name] 
-                    size = var_infos[start_var.name].size
+                for var in cur_vars:
+                    start = solution[var.name] 
+                    size = var_infos[var.name].size
                     for c in range(start, start + size):
                         pixmap[r][c] = 1
             yield pixmap
