@@ -6,6 +6,7 @@ from .expression import (
 
 __all__ = [
     'Constraint',
+    'ConstConstraint',
     'ExpressionConstraint',
     'AllDifferentConstraint',
 ]
@@ -36,6 +37,21 @@ class Constraint(abc.ABC):
 
     def is_compiled(self):
         return False
+
+
+class ConstConstraint(Constraint):
+    def __init__(self, value):
+        super().__init__([])
+        self._value = bool(value)
+
+    def evaluate(self, substitution):
+        return self._value
+
+    def __repr__(self):
+        return "{}({!r})".format(type(self).__name__, self._value)
+
+    def __str__(self):
+        return str(self._value)
 
 
 class ExpressionConstraint(Constraint):

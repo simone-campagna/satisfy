@@ -157,6 +157,8 @@ class Solver(object):
         # print("::: limit=", limit)
         # print("::: var_selection_policy=", var_selection_policy)
         # print("::: additional_constraints=", additional_constraints)
+        if not model.solvable():
+            return
 
         model_info = self._setup(model, additional_constraints=additional_constraints)
         variables = model_info.variables

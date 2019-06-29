@@ -1,11 +1,13 @@
 import copy
 import collections
+import logging
 import re
 import types
 
 from .constraint import (
     Constraint,
     ExpressionConstraint,
+    ConstConstraint,
     AllDifferentConstraint,
 )
 from .expression import (
@@ -19,6 +21,8 @@ __all__ = [
 ]
 
 
+LOG = logging.getLogger(__name__)
+
 VariableInfo = collections.namedtuple("VariableInfo", "variable domain")
 
 
@@ -29,6 +33,10 @@ class Model(object):
         self._variables = collections.OrderedDict()
         self._constraints = []
         self._variables_proxy = types.MappingProxyType(self._variables)
+        self.__solvable = True
+
+    def solvable(self):
+        return self.__solvable
 
     def variables(self):
         return self._variables_proxy
@@ -84,14 +92,25 @@ class Model(object):
     def get_variable(self, name):
         return self._variables[name].variable
 
+    def set_solvable(self, solvable):
+        self.__unsolvable = True
+
     def add_constraint(self, constraint):
-        if isinstance(constraint, Expression):
+        if isinstance(constraint, bool):
+            constraint = ConstConstraint(constraint)
+        elif isinstance(constraint, Expression):
             constraint = ExpressionConstraint(constraint)
         elif not isinstance(constraint, Constraint):
             raise TypeError("{} is not a valid constraint".format(constraint))
         var_names = tuple(constraint.vars())
         if not var_names:
-            raise ValueError("constraint {} does not depends on model variables".format(constraint))
+            value = constraint.evaluate({})
+            if value:
+                LOG.warning("constraint {} is always satisfied".format(constraint))
+                return
+            else:
+                LOG.warning("constraint {} is never satisfied - model is marked as not solvable".format(constraint))
+                self.__solvable = False
         for var_name in var_names:
             if var_name not in self._variables:
                 raise ValueError("constraint {} depends on undefined variable {}".format(constraint, var_name))
