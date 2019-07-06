@@ -72,7 +72,7 @@ Satisfy tool - show some examples.
 """,
         **common_args)
 
-    solve_args = ["timeout", "limit", "show_model"]
+    solve_args = ["timeout", "limit", "show_model", "show_stats"]
 
     subparsers = top_level_parser.add_subparsers()
     top_level_parser.set_defaults(
@@ -266,11 +266,36 @@ Solve cryptarithms, for instance:
             type=int,
             help="max number of solutions")
 
-        parser.add_argument(
-            "-s", "--show-model",
-            default=False,
+        def _default(b_value):
+            if b_value:
+                return " (default)"
+            return ""
+
+        show_model_group = parser.add_mutually_exclusive_group()
+        default_show_model = False
+        show_model_group.add_argument(
+            "-m", "--show-model",
+            default=default_show_model,
             action="store_true",
-            help="show model variables and constraints")
+            help="show model variables and constraints" + _default(default_show_model))
+        show_model_group.add_argument(
+            "-M", "--no-show-model",
+            default=default_show_model,
+            action="store_false",
+            help="show model variables and constraints" + _default(not default_show_model))
+
+        show_stats_group = parser.add_mutually_exclusive_group()
+        default_show_stats = True
+        show_stats_group.add_argument(
+            "-s", "--show-stats",
+            default=default_show_stats,
+            action="store_true",
+            help="show solver statistics" + _default(default_show_stats))
+        show_stats_group.add_argument(
+            "-S", "--no-show-stats",
+            default=default_show_stats,
+            action="store_false",
+            help="show solver statistics" + _default(not default_show_stats))
 
     namespace = top_level_parser.parse_args()
 

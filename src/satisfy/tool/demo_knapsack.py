@@ -4,6 +4,7 @@ from ..knapsack import KnapsackOptimizer
 
 from .demo_utils import (
     print_model,
+    print_model,
     print_optimization_stats,
 )
 
@@ -42,7 +43,7 @@ def default_knapsack_source():
     return DEFAULT_KNAPSACK_SOURCE
 
 
-def knapsack(input_file, timeout, limit, show_model):
+def knapsack(input_file, timeout, limit, show_model, show_stats):
     if input_file is None:
         source = default_knapsack_source()
         print("""\
@@ -81,4 +82,5 @@ No input file - using default data:
         print("value:", knapsack_result.value)
         print("weights:", knapsack_result.weights)
 
-    print_optimization_stats(knapsack_optimizer.get_stats(), optimal=knapsack_result.is_optimal)
+    if show_stats:
+        print_optimization_stats(knapsack_optimizer.get_stats(), optimal=knapsack_result.is_optimal)

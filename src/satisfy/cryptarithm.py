@@ -3,7 +3,7 @@ import itertools
 import operator
 import re
 
-from .solver import ModelSolver, VarSelectionPolicy
+from .solver2 import ModelSolver
 
 __all__ = [
     'CryptarithmSolver',
@@ -13,8 +13,8 @@ __all__ = [
     
 class CryptarithmSolver(ModelSolver):
     def __init__(self, source, avoid_leading_zeros=True, **args):
-        if args.get('var_selection_policy', None) is None:
-            args['var_selection_policy'] = VarSelectionPolicy.MIN_BOUND
+        #if args.get('var_selection_policy', None) is None:
+        #    args['var_selection_policy'] = VarSelectionPolicy.MIN_BOUND
         super().__init__(**args)
         source = source.upper()
         numbers = set()
@@ -23,10 +23,10 @@ class CryptarithmSolver(ModelSolver):
         offset = 0
         letters = set()
         non_zero_letters = set()
-        if avoid_leading_zeros:
-            for number in numbers:
+        for number in numbers:
+            if avoid_leading_zeros and len(number) > 1:
                 non_zero_letters.add(number[0])
-                letters.update(number)
+            letters.update(number)
         variables = {}
         for m in word.finditer(source):
             number = m.group()

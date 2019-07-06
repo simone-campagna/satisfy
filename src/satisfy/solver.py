@@ -37,6 +37,13 @@ class VarSelectionPolicy(enum.Enum):
     MAX_CONSTRAINT = 7
 
 
+def print_subst(substitution):
+    lst = []
+    for key, value in sorted(substitution.items(), key=lambda item: item[0]):
+        lst.append("{}={!r}".format(key, value))
+    print(":::" + " ".join(lst))
+
+
 class Solver(object):
     def __init__(self,
                  var_selection_policy=VarSelectionPolicy.GROUPS,
@@ -270,6 +277,7 @@ class Solver(object):
                 continue
             value = domain.pop(0)
             substitution[var_name] = value
+            #print_subst(substitution)
             if unbound_vars:
                 stack.append((unbound_vars, substitution))
             else:

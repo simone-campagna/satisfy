@@ -25,7 +25,7 @@ def print_cryptarithm_solution(solution, source):
     print("==> {}".format(s))
     
 
-def cryptarithm(source, avoid_leading_zeros, timeout, limit, show_model):
+def cryptarithm(source, avoid_leading_zeros, timeout, limit, show_model, show_stats):
     if source is None:
         source = default_cryptarithm_source()
         print("""\
@@ -45,4 +45,5 @@ No input source - using default cryptarithm example:
         num_solutions += 1
         print("\n=== solution {} ===".format(num_solutions))
         print_cryptarithm_solution(solution, source)
-    print_solve_stats(cryptarithm_solver.get_stats())
+    if show_stats:
+        print_solve_stats(cryptarithm_solver.get_stats())

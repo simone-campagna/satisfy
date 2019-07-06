@@ -35,7 +35,7 @@ def print_queens_board(board_size, board):
     print(bline)
 
 
-def queens(board_size, timeout, limit, show_model):
+def queens(board_size, timeout, limit, show_model, show_stats):
     num_solutions = 0
     queens_solver = QueensSolver(board_size, timeout=timeout, limit=limit)
 
@@ -46,4 +46,5 @@ def queens(board_size, timeout, limit, show_model):
         num_solutions += 1
         print("\n=== solution {} ===".format(num_solutions))
         print_queens_board(board_size, board)
-    print_solve_stats(queens_solver.get_stats())
+    if show_stats:
+        print_solve_stats(queens_solver.get_stats())

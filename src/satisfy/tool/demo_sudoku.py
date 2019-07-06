@@ -64,7 +64,7 @@ def print_sudoku_schema(schema):
     print(bline)
 
 
-def sudoku(input_file, timeout, limit, show_model):
+def sudoku(input_file, timeout, limit, show_model, show_stats):
     if input_file is None:
         source = default_sudoku_source()
         print("""\
@@ -85,4 +85,5 @@ No input file - using default schema:
         num_solutions += 1
         print("\n=== solution {} ===".format(num_solutions))
         print_sudoku_schema(schema)
-    print_solve_stats(sudoku_solver.get_stats())
+    if show_stats:
+        print_solve_stats(sudoku_solver.get_stats())
