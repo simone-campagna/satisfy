@@ -26,6 +26,7 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
         'var_names',
         'var_constraints',
         'var_ad',
+        'var_map',
         'bound_constraints',
     ]
 )
@@ -37,14 +38,27 @@ OptimalSolution = collections.namedtuple(  # pylint: disable=invalid-name
 
 
 def max_bound(bound_var_names, unbound_var_names, model_info):
-    if len(bound_var_names) == 0:
-        domains = model_info.domains
-        varset = frozenset(bound_var_names)
-        bound_constraints = model_info.bound_constraints
-        def skey(var_name):
-            return -len(bound_constraints[varset.union([var_name])])
-        unbound_var_names.sort(key=lambda v: (-len(bound_constraints[varset.union([v])]), len(domains[v])))
-        # unbound_var_names.sort(key=lambda v: -len(bound_constraints[varset.union([v])]))
+    # if len(bound_var_names) == 0:
+    #     domains = model_info.domains
+    #     varset = frozenset(bound_var_names)
+    #     bound_constraints = model_info.bound_constraints
+    #     def skey(var_name):
+    #         return -len(bound_constraints[varset.union([var_name])])
+    #     unbound_var_names.sort(key=lambda v: (-len(bound_constraints[varset.union([v])]), len(domains[v])))
+    #     # unbound_var_names.sort(key=lambda v: -len(bound_constraints[varset.union([v])]))
+    if len(bound_var_names) < 2:
+        var_map = model_info.var_map
+        dct = {}
+        for var_name in unbound_var_names:
+            if bound_var_names:
+                other_var_names = bound_var_names
+            else:
+                other_var_names = filter(lambda v: v != var_name, model_info.var_names)
+            count = 0
+            for other_var_name in other_var_names:
+                count += var_map[var_name][other_var_name]
+            dct[var_name] = count
+        unbound_var_names.sort(key=lambda v: dct[v], reverse=True)
     var_name = unbound_var_names.pop(0)
     return var_name, unbound_var_names
 
@@ -142,6 +156,7 @@ class Solver(object):
         var_ad = {var_name: set() for var_name in var_names}
         bound_constraints = collections.defaultdict(list)
         constraint_vars = collections.defaultdict(set)
+        var_map = {var_name: collections.Counter() for var_name in var_names}
         for constraint in itertools.chain(model.constraints(), additional_constraints):
             if compile_constraints:
                 constraint.compile()
@@ -151,7 +166,10 @@ class Solver(object):
                     if var_name in var_names_set:
                         ad_var_names.add(var_name)
                 for var_name in ad_var_names:
-                    var_ad[var_name].update(ad_var_names.difference([var_name]))
+                    other_var_names = ad_var_names.difference([var_name])
+                    var_ad[var_name].update(other_var_names)
+                    for other_var_name in other_var_names:
+                        var_map[var_name][other_var_name] += 1
             else:
                 varset = set()
                 c_vars = constraint_vars[constraint]
@@ -160,6 +178,9 @@ class Solver(object):
                         c_vars.add(var_name)
                         var_constraints[var_name].append(constraint)
                         varset.add(var_name)
+                        for other_var_name in other_var_names:
+                            if other_var_name != var_name:
+                                var_map[var_name][other_var_name] += 1
                 bound_constraints[frozenset(varset)].append(constraint)
 
         reduced_domains = {}
@@ -171,6 +192,7 @@ class Solver(object):
             var_names=var_names,
             var_constraints=var_constraints,
             var_ad=var_ad,
+            var_map=var_map,
             bound_constraints=bound_constraints,
         )
 
