@@ -284,6 +284,7 @@ class Solver(object):
                     return
                 timer.start()
                 continue
+        timer.abort()
 
 # REM     def _solve_forbidden(self, model, **args):
 # REM         timeout = args.get('timeout', self._timeout)
