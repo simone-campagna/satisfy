@@ -10,32 +10,48 @@ __all__ = [
 ]
 
 
-DEFAULT_CRYPTARITHM_SOURCE = "SEND+MORE==MONEY"
+DEFAULT_CRYPTARITHM_SYSTEM = ["SEND+MORE==MONEY"]
 
 
-def default_cryptarithm_source():
-    return DEFAULT_CRYPTARITHM_SOURCE
+def default_cryptarithm_system():
+    return DEFAULT_CRYPTARITHM_SYSTEM
 
 
-def print_cryptarithm_solution(solution, source):
-    s = source
+def print_system(system, header=''):
+    if isinstance(system, str):
+        system = [system]
+    if len(system) == 1:
+        fmt = "{header}{source}"
+    else:
+        fmt = "{header}{count}) {source}"
+    for count, source in enumerate(system):
+        print(fmt.format(header=header, count=count, source=source))
+        header = ' ' * len(header)
+
+
+def print_cryptarithm_solution(solution, system):
     for key in sorted(solution):
         print("{} = {}".format(key, solution[key]))
-        s = s.replace(key, str(solution[key]))
-    print("==> {}".format(s))
+    subst_system = []
+    for source in system:
+        subst_source = source
+        for key in sorted(solution):
+            subst_source = subst_source.replace(key, str(solution[key]))
+        subst_system.append(subst_source)
+    print_system(subst_system, header='===> ')
     
 
-def cryptarithm(source, avoid_leading_zeros, timeout, limit, show_model, show_stats):
-    if source is None:
-        source = default_cryptarithm_source()
+def cryptarithm(system, avoid_leading_zeros, timeout, limit, show_model, show_stats):
+    if not system:
+        system = default_cryptarithm_system()
         print("""\
 No input source - using default cryptarithm example:
 {example}
-""".format(example=source))
+""".format(example=system))
     else:
-        print(source)
+        print("system:", system)
 
-    cryptarithm_solver = CryptarithmSolver(source, avoid_leading_zeros=avoid_leading_zeros, timeout=timeout, limit=limit)
+    cryptarithm_solver = CryptarithmSolver(system, avoid_leading_zeros=avoid_leading_zeros, timeout=timeout, limit=limit)
 
     if show_model:
         print_model(cryptarithm_solver.model)
@@ -44,6 +60,6 @@ No input source - using default cryptarithm example:
     for solution in cryptarithm_solver:
         num_solutions += 1
         print("\n=== solution {} ===".format(num_solutions))
-        print_cryptarithm_solution(solution, source)
+        print_cryptarithm_solution(solution, system)
     if show_stats:
         print_solve_stats(cryptarithm_solver.get_stats())

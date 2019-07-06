@@ -4,7 +4,7 @@ from ..utils import INFINITY
 
 from .demo_cryptarithm import (
     cryptarithm,
-    default_cryptarithm_source,
+    default_cryptarithm_system,
 )
 from .einstein_riddle import (
     EinsteinRiddleSolver,
@@ -228,11 +228,11 @@ Solve cryptarithms, for instance:
 
 {example}
 
-""".format(example=default_cryptarithm_source()),
+""".format(example=default_cryptarithm_system()),
         **common_args)
     cryptarithm_parser.set_defaults(
         function=cryptarithm,
-        function_args=["source", "avoid_leading_zeros"] + solve_args)
+        function_args=["system", "avoid_leading_zeros"] + solve_args)
 
     cryptarithm_parser.add_argument(
         "-z", "--avoid-leading-zeros",
@@ -242,9 +242,9 @@ Solve cryptarithms, for instance:
         help="avoid leading zeros in numbers")
 
     cryptarithm_parser.add_argument(
-        "source",
-        nargs='?', default=None,
-        help="cryptarithm source")
+        "system",
+        nargs='*',
+        help="cryptarithm")
 
     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
                      graph_labeling_parser, ascii_map_coloring_parser,
