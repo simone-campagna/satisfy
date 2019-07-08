@@ -2,7 +2,7 @@ import collections
 import itertools
 
 from .model import Model
-from .solver import ModelSolver
+from .solver_legacy import ModelSolver
 
 __all__ = [
     'SudokuSolver',

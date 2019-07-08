@@ -3,7 +3,7 @@ import itertools
 import operator
 import re
 
-from .solver2 import ModelSolver
+from .solver import ModelSolver
 
 __all__ = [
     'CryptarithmSolver',

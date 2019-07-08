@@ -2,7 +2,7 @@ import collections
 
 from .model import Model
 from .objective import Maximize
-from .solver import ModelOptimizer
+from .solver_legacy import ModelOptimizer
 
 __all__ = [
     'KnapsackOptimizer',

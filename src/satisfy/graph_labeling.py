@@ -1,5 +1,5 @@
 from .model import Model
-from .solver import ModelSolver, VarSelectionPolicy
+from .solver_legacy import ModelSolver, VarSelectionPolicy
 
 __all__ = [
     'GraphLabelingSolver',
