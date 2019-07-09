@@ -15,7 +15,7 @@ __all__ = [
     'ModelSolver',
     'ModelOptimizer',
     'max_bound',
-    'ad_size',
+    'group_prio',
     'min_value',
     'max_value',
 ]
@@ -35,7 +35,6 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
         'var_group_prio',
         'groups',
         'var_groups',
-        'bound_constraints',
     ]
 )
 
@@ -46,14 +45,6 @@ OptimalSolution = collections.namedtuple(  # pylint: disable=invalid-name
 
 
 def max_bound(bound_var_names, unbound_var_names, model_info):
-    # if len(bound_var_names) == 0:
-    #     domains = model_info.domains
-    #     varset = frozenset(bound_var_names)
-    #     bound_constraints = model_info.bound_constraints
-    #     def skey(var_name):
-    #         return -len(bound_constraints[varset.union([var_name])])
-    #     unbound_var_names.sort(key=lambda v: (-len(bound_constraints[varset.union([v])]), len(domains[v])))
-    #     # unbound_var_names.sort(key=lambda v: -len(bound_constraints[varset.union([v])]))
     if len(bound_var_names) < 2:
         var_map = model_info.var_map
         dct = {}
@@ -71,7 +62,7 @@ def max_bound(bound_var_names, unbound_var_names, model_info):
     return var_name, unbound_var_names
 
 
-def ad_size(bound_var_names, unbound_var_names, model_info):
+def group_prio(bound_var_names, unbound_var_names, model_info):
     if not bound_var_names:
         var_group_prio = model_info.var_group_prio
         var_bounds = model_info.var_bounds
@@ -178,8 +169,6 @@ class Solver(object):
         var_names_set = set(var_names)
         var_constraints = {var_name: [] for var_name in var_names}
         var_ad = {var_name: set() for var_name in var_names}
-        bound_constraints = collections.defaultdict(list)
-        constraint_vars = collections.defaultdict(set)
         var_map = {var_name: collections.Counter() for var_name in var_names}
         var_bounds = collections.Counter()
         groups = {}
@@ -196,26 +185,17 @@ class Solver(object):
                 for var_name in c_vars:
                     var_groups[var_name].append(groupid)
                 ad_var_names = set()
-                for var_name in constraint.vars():
-                    if var_name in var_names_set:
-                        ad_var_names.add(var_name)
-                for var_name in ad_var_names:
-                    other_var_names = ad_var_names.difference([var_name])
+                for var_name in c_vars:
+                    other_var_names = c_vars.difference({var_name})
                     var_ad[var_name].update(other_var_names)
                     for other_var_name in other_var_names:
                         var_map[var_name][other_var_name] += 1
             else:
-                varset = set()
-                c_vars = constraint_vars[constraint]
-                for var_name in constraint.vars():
-                    if var_name in var_names_set:
-                        c_vars.add(var_name)
-                        var_constraints[var_name].append(constraint)
-                        varset.add(var_name)
-                        for other_var_name in other_var_names:
-                            if other_var_name != var_name:
-                                var_map[var_name][other_var_name] += 1
-                bound_constraints[frozenset(varset)].append(constraint)
+                for var_name in c_vars:
+                    var_constraints[var_name].append(constraint)
+                    other_var_names = c_vars.difference({var_name})
+                    for other_var_name in other_var_names:
+                        var_map[var_name][other_var_name] += 1
 
         group_prio = {groupid: groupid for groupid in groups}  #idx for idx, groupid in enumerate(sorted(groups, key=lambda x: (group_bounds[x], group_sizes[x]), reverse=True))}
         var_group_prio = {}
@@ -239,7 +219,6 @@ class Solver(object):
             var_group_prio=var_group_prio,
             groups=groups,
             var_groups=var_groups,
-            bound_constraints=bound_constraints,
         )
 
         # 2. solve:
@@ -265,16 +244,20 @@ class Solver(object):
             substitution = substitution.copy()
             reduced_domain = reduced_domains.get(var_name, None)
             if reduced_domain is None:
-                bound_vars = set(substitution)
-                bound_vars.add(var_name)
-                var_bound_constraints = bound_constraints[frozenset(bound_vars)]
+                bound_var_set = set(bound_var_names)
                 forbidden_values = {substitution[vname] for vname in var_ad[var_name].intersection(substitution)}
                 reduced_domain = set()
+                
+                use_constraints = set()
+                for constraint in var_constraints[var_name]:
+                    if constraint.vars() <= bound_var_set:
+                        use_constraints.add(constraint)
+
                 for value in initial_domains[var_name]:
                     if value in forbidden_values:
                         continue
                     substitution[var_name] = value
-                    for constraint in var_bound_constraints:
+                    for constraint in use_constraints:
                         if not constraint.evaluate(substitution):
                             break
                     else:
@@ -282,14 +265,14 @@ class Solver(object):
                 if reduced_domain:
                     reduced_domains[var_name] = reduced_domain
                 else:
-                    x = stack.pop(-1)
-                    # print("@-1", x)
+                    stack.pop(-1)
+                    # print("@-1")
                     #print("A")
                     continue
             elif not reduced_domain:
                 reduced_domains.pop(var_name)
-                x = stack.pop(-1)
-                # print("@-2", var_name, x)
+                stack.pop(-1)
+                # print("@-2", var_name)
                 #print("B")
                 continue
             # REM print("   ", var_name, unbound_var_names, reduced_domain)
@@ -312,6 +295,9 @@ class Solver(object):
                 num_solutions += 1
                 # REM print(":::", var_name, unbound_var_names, substitution)
                 # print("@-4", substitution)
+                for constraint in model.constraints():
+                    if constraint.unsatisfied(substitution):
+                        print("!!!", constraint)
                 yield substitution
                 if limit is not None and num_solutions >= limit:
                     timer.abort()

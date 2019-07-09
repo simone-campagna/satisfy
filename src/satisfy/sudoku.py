@@ -2,7 +2,7 @@ import collections
 import itertools
 
 from .model import Model
-from .solver import ModelSolver, ad_size, min_value
+from .solver import ModelSolver, group_prio, min_value
 # from .solver_legacy import ModelSolver
 
 __all__ = [
@@ -20,7 +20,7 @@ class SudokuSolver(ModelSolver):
         if args.get('limit', None) is None:
             args['limit'] = 1
         if args.get('select_var', None) is None:
-            args['select_var'] = ad_size
+            args['select_var'] = group_prio
         if args.get('select_value', None) is None:
             args['select_value'] = min_value
         super().__init__(**args)
