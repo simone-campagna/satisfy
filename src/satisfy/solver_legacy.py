@@ -185,7 +185,7 @@ class Solver(object):
             group_sizes = model_info.group_sizes
 
 
-            sort_group = lambda x: (-group_bounds[x], -group_sizes[x])
+            # 7sort_group = lambda x: (-group_bounds[x], -group_sizes[x])
             group_prio = {groupid: groupid for groupid in groups}  #idx for idx, groupid in enumerate(sorted(groups, key=lambda x: (group_bounds[x], group_sizes[x]), reverse=True))}
             var_group_prio = {}
             for var_name in var_names:
@@ -193,6 +193,10 @@ class Solver(object):
                     var_group_prio[var_name] = min(group_prio[groupid] for groupid in var_groups[var_name])
                 else:
                     var_group_prio[var_name] = -1
+            import sys
+            for v in sorted(variables):
+                print(":::", v, (var_group_prio[v], var_bounds[v], var_sizes[v]), file=sys.stdout)
+            sys.stdout.flush()
             sort_key = lambda x: (var_group_prio[x], var_bounds[x], var_sizes[x])
             s_var_names = tuple(sorted(variables, key=sort_key, reverse=True))
             var_names = tuple(reversed(s_var_names))
@@ -227,6 +231,7 @@ class Solver(object):
         #     for c in model_info.var_constraints.get(var_name, []):
         #         print(":::         {}".format(c))
 
+        print("%%%", var_names)
         stack = []
         domains = {}
         stack.append((var_names, {}))
@@ -244,6 +249,7 @@ class Solver(object):
             unbound_vars, substitution = stack[-1]
 
             var_name, unbound_vars = unbound_vars[0], unbound_vars[1:]
+            print("@-0", var_name)
 
             substitution = substitution.copy()
             domain = domains.get(var_name, None)
@@ -269,13 +275,16 @@ class Solver(object):
                 if domain:
                     domains[var_name] = domain
                 else:
-                    stack.pop(-1)
+                    x = stack.pop(-1)
+                    print("@-1", x)
                     continue
             elif not domain:
                 domains.pop(var_name)
-                stack.pop(-1)
+                x = stack.pop(-1)
+                print("@-2", var_name, x)
                 continue
             value = domain.pop(0)
+            print("@-3", var_name, value)
             substitution[var_name] = value
             #print_subst(substitution)
             if unbound_vars:
@@ -285,6 +294,7 @@ class Solver(object):
                 # for constraint in model.constraints():
                 #     print(constraint.evaluate(substitution), constraint)
                 num_solutions += 1
+                print("@-4", substitution)
                 yield substitution
                 if limit is not None and num_solutions >= limit:
                     timer.abort()

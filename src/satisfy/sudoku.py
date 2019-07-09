@@ -2,7 +2,8 @@ import collections
 import itertools
 
 from .model import Model
-from .solver_legacy import ModelSolver
+from .solver import ModelSolver, ad_size, min_value
+# from .solver_legacy import ModelSolver
 
 __all__ = [
     'SudokuSolver',
@@ -18,6 +19,10 @@ class SudokuSolver(ModelSolver):
     def __init__(self, schema, **args):
         if args.get('limit', None) is None:
             args['limit'] = 1
+        if args.get('select_var', None) is None:
+            args['select_var'] = ad_size
+        if args.get('select_value', None) is None:
+            args['select_value'] = min_value
         super().__init__(**args)
         model = self._model
         block_size = 3

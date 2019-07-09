@@ -14,6 +14,10 @@ __all__ = [
     'Solver',
     'ModelSolver',
     'ModelOptimizer',
+    'max_bound',
+    'ad_size',
+    'min_value',
+    'max_value',
 ]
 
 
@@ -24,9 +28,13 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
         'reduced_domains',
         'domains',
         'var_names',
+        'var_bounds',
         'var_constraints',
         'var_ad',
         'var_map',
+        'var_group_prio',
+        'groups',
+        'var_groups',
         'bound_constraints',
     ]
 )
@@ -63,8 +71,24 @@ def max_bound(bound_var_names, unbound_var_names, model_info):
     return var_name, unbound_var_names
 
 
+def ad_size(bound_var_names, unbound_var_names, model_info):
+    if not bound_var_names:
+        var_group_prio = model_info.var_group_prio
+        var_bounds = model_info.var_bounds
+        var_domains = model_info.initial_domains
+        unbound_var_names.sort(key=lambda v: (var_group_prio[v], var_bounds[v], len(var_domains[v])))
+    var_name = unbound_var_names.pop(0)
+    return var_name, unbound_var_names
+
+
 def min_value(var_name, substitution, reduced_domain):
     value = min(reduced_domain)
+    reduced_domain.discard(value)
+    return value, reduced_domain
+
+
+def max_value(var_name, substitution, reduced_domain):
+    value = max(reduced_domain)
     reduced_domain.discard(value)
     return value, reduced_domain
 
@@ -157,10 +181,20 @@ class Solver(object):
         bound_constraints = collections.defaultdict(list)
         constraint_vars = collections.defaultdict(set)
         var_map = {var_name: collections.Counter() for var_name in var_names}
+        var_bounds = collections.Counter()
+        groups = {}
+        var_groups = collections.defaultdict(list)
         for constraint in itertools.chain(model.constraints(), additional_constraints):
             if compile_constraints:
                 constraint.compile()
+            c_vars = set(filter(lambda v: v in var_names_set, constraint.vars()))
+            for c_var in c_vars:
+                var_bounds[c_var] += len(c_vars) - 1
             if isinstance(constraint, AllDifferentConstraint):
+                groupid = len(groups)
+                groups[groupid] = c_vars
+                for var_name in c_vars:
+                    var_groups[var_name].append(groupid)
                 ad_var_names = set()
                 for var_name in constraint.vars():
                     if var_name in var_names_set:
@@ -183,6 +217,14 @@ class Solver(object):
                                 var_map[var_name][other_var_name] += 1
                 bound_constraints[frozenset(varset)].append(constraint)
 
+        group_prio = {groupid: groupid for groupid in groups}  #idx for idx, groupid in enumerate(sorted(groups, key=lambda x: (group_bounds[x], group_sizes[x]), reverse=True))}
+        var_group_prio = {}
+        for var_name in var_names:
+            if var_groups[var_name]:
+                var_group_prio[var_name] = min(group_prio[groupid] for groupid in var_groups[var_name])
+            else:
+                var_group_prio[var_name] = -1
+
         reduced_domains = {}
         domains = collections.ChainMap(reduced_domains, initial_domains)
         model_info = ModelInfo(
@@ -190,9 +232,13 @@ class Solver(object):
             reduced_domains=reduced_domains,
             domains=domains,
             var_names=var_names,
+            var_bounds=var_bounds,
             var_constraints=var_constraints,
             var_ad=var_ad,
             var_map=var_map,
+            var_group_prio=var_group_prio,
+            groups=groups,
+            var_groups=var_groups,
             bound_constraints=bound_constraints,
         )
 
@@ -214,6 +260,7 @@ class Solver(object):
 
             bound_var_names, unbound_var_names, substitution = stack[-1]
             var_name = bound_var_names[-1]
+            # print("@-0", var_name)
             #print(var_name, unbound_var_names, substitution)
             substitution = substitution.copy()
             reduced_domain = reduced_domains.get(var_name, None)
@@ -235,12 +282,14 @@ class Solver(object):
                 if reduced_domain:
                     reduced_domains[var_name] = reduced_domain
                 else:
-                    stack.pop(-1)
+                    x = stack.pop(-1)
+                    # print("@-1", x)
                     #print("A")
                     continue
             elif not reduced_domain:
                 reduced_domains.pop(var_name)
-                stack.pop(-1)
+                x = stack.pop(-1)
+                # print("@-2", var_name, x)
                 #print("B")
                 continue
             # REM print("   ", var_name, unbound_var_names, reduced_domain)
@@ -249,6 +298,7 @@ class Solver(object):
             #input("...")
             # select value:
             value, reduced_domain = select_value(var_name, substitution, reduced_domain)
+            # print("@-3", var_name, value)
             substitution[var_name] = value
             if unbound_var_names:
                 # REM print("...", var_name, unbound_var_names, substitution)
@@ -261,6 +311,7 @@ class Solver(object):
                 #     print(constraint.evaluate(substitution), constraint)
                 num_solutions += 1
                 # REM print(":::", var_name, unbound_var_names, substitution)
+                # print("@-4", substitution)
                 yield substitution
                 if limit is not None and num_solutions >= limit:
                     timer.abort()
