@@ -2,7 +2,8 @@ import collections
 
 from .model import Model
 from .objective import Maximize
-from .solver_legacy import ModelOptimizer
+# from .solver_legacy import ModelOptimizer
+from .solver import ModelOptimizer, group_prio, min_value
 
 __all__ = [
     'KnapsackOptimizer',
@@ -16,6 +17,10 @@ KnapsackSolution = collections.namedtuple(
 
 class KnapsackOptimizer(ModelOptimizer):
     def __init__(self, values, capacities, weights, **args):
+        if args.get('select_var', None) is None:
+            args['select_var'] = group_prio
+        if args.get('select_value', None) is None:
+            args['select_value'] = min_value
         super().__init__(**args)
         model = self._model
         values = tuple(values)
