@@ -194,7 +194,7 @@ class Solver(object):
     def compile_constraints(self, value):
         self._compile_constraints = bool(value)
 
-    def make_model_info(self, model, *, objective_constraints=(), **args):
+    def make_model_info(self, model, *, _additional_constraints=(), **args):
         compile_constraints = args.get('compile_constraints', self._compile_constraints)
 
         # 1. internal data structures:
@@ -210,7 +210,7 @@ class Solver(object):
         var_bounds = collections.Counter()
         groups = {}
         var_groups = collections.defaultdict(list)
-        for constraint in itertools.chain(model.constraints(), objective_constraints):
+        for constraint in itertools.chain(model.constraints(), _additional_constraints):
             if compile_constraints:
                 constraint.compile()
             c_vars = set(filter(lambda v: v in var_names_set, constraint.vars()))
@@ -259,14 +259,14 @@ class Solver(object):
             extra={}
         )
 
-    def solve(self, model, *, objective_constraints=(), **args):
+    def solve(self, model, *, _additional_constraints=(), **args):
         select_var = args.get('select_var', self._select_var)
         select_value = args.get('select_value', self._select_value)
         timeout = args.get('timeout', self._timeout)
         limit = args.get('limit', self._limit)
 
         # 1. make model_info:
-        model_info = self.make_model_info(model, objective_constraints=objective_constraints, **args)
+        model_info = self.make_model_info(model, _additional_constraints=_additional_constraints, **args)
         var_names = model_info.var_names
         reduced_domains = model_info.reduced_domains
         initial_domains = model_info.initial_domains
@@ -369,7 +369,7 @@ class Solver(object):
             if not isinstance(objective, Objective):
                 raise ValueError("{} is not an Objective".format(objective))
             objective_constraints.append(objective.make_constraint(model))
-        args['objective_constraints'] = tuple(args.get('objective_constraints', ())) + tuple(objective_constraints)
+        args['_additional_constraints'] = tuple(args.get('_additional_constraints', ())) + tuple(objective_constraints)
         for solution in self.solve(model, **args):
             # print("sol found:", solution)
             for objective, constraint in zip(objectives, objective_constraints):
