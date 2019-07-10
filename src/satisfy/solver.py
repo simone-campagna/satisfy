@@ -14,6 +14,7 @@ __all__ = [
     'Solver',
     'ModelSolver',
     'ModelOptimizer',
+    'in_order',
     'max_bound',
     'group_prio',
     'min_value',
@@ -42,6 +43,11 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
 OptimalSolution = collections.namedtuple(  # pylint: disable=invalid-name
     "OptimalSolution",
     "is_optimal solution")
+
+
+def in_order(bound_var_names, unbound_var_names, model_info):
+    var_name = unbound_var_names.pop(0)
+    return var_name, unbound_var_names
 
 
 def max_bound(bound_var_names, unbound_var_names, model_info):
