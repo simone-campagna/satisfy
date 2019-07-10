@@ -17,7 +17,7 @@ def default_cryptarithm_system():
     return DEFAULT_CRYPTARITHM_SYSTEM
 
 
-def print_system(system, header=''):
+def print_cryptarithm_system(system, header=''):
     if isinstance(system, str):
         system = [system]
     if len(system) == 1:
@@ -38,16 +38,14 @@ def print_cryptarithm_solution(solution, system):
         for key in sorted(solution):
             subst_source = subst_source.replace(key, str(solution[key]))
         subst_system.append(subst_source)
-    print_system(subst_system, header='===> ')
+    print_cryptarithm_system(subst_system, header='===> ')
     
 
 def cryptarithm(system, avoid_leading_zeros, timeout, limit, show_model, show_stats):
     if not system:
         system = default_cryptarithm_system()
-        print("""\
-No input source - using default cryptarithm example:
-{example}
-""".format(example=system))
+        print("No input source - using default cryptarithm example:")
+        print_cryptarithm_system(system)
     else:
         print("system:", system)
 

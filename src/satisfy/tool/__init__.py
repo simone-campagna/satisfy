@@ -1,5 +1,7 @@
 import argparse
 
+import argcomplete
+
 from ..utils import INFINITY
 
 from .demo_cryptarithm import (
@@ -112,7 +114,7 @@ an unknown value. For instance:
         function_args=["input_file"] + solve_args)
 
     graph_labeling_parser = subparsers.add_parser(
-        "graph_labeling",
+        "graph-labeling",
         description="""\
 Solve a graph labeling problem.
 
@@ -128,7 +130,7 @@ For instance:
         function_args=["input_file", "labels"] + solve_args)
 
     ascii_map_coloring_parser = subparsers.add_parser(
-        "ascii_map_coloring",
+        "ascii-map-coloring",
         description="""\
 Solve a map_coloring problem.
 
@@ -212,7 +214,7 @@ attacking queens.
         help="board size")
 
     einstein_parser = subparsers.add_parser(
-        "einstein",
+        "einstein-riddle",
         description="""\
 Solve the Einstein's riddle:
 """ + EinsteinRiddleSolver.riddle(),
@@ -228,7 +230,7 @@ Solve cryptarithms, for instance:
 
 {example}
 
-""".format(example=default_cryptarithm_system()),
+""".format(example=' '.join(default_cryptarithm_system())),
         **common_args)
     cryptarithm_parser.set_defaults(
         function=cryptarithm,
@@ -297,6 +299,7 @@ Solve cryptarithms, for instance:
             action="store_false",
             help="show solver statistics" + _default(not default_show_stats))
 
+    argcomplete.autocomplete(top_level_parser)
     namespace = top_level_parser.parse_args()
 
     function = namespace.function
