@@ -65,7 +65,7 @@ def _sort_bound(reverse, bound_var_names, unbound_var_names, model_info):
         for other_var_name in other_var_names:
             count += var_map[var_name][other_var_name]
         dct[var_name] = count
-    unbound_var_names.sort(key=lambda v: dct[v], reverse=True)
+    unbound_var_names.sort(key=lambda v: dct[v], reverse=reverse)
 
 
 def min_bound(bound_var_names, unbound_var_names, model_info):
@@ -87,7 +87,7 @@ def _sort_domain(reverse, bound_var_names, unbound_var_names, model_info):
         var_domains = model_info.domains
     else:
         var_domains = model_info.initial_domains
-    unbound_var_names.sort(key=lambda v: len(var_domains[v]), reverse=True)
+    unbound_var_names.sort(key=lambda v: len(var_domains[v]), reverse=reverse)
 
 
 def min_domain(bound_var_names, unbound_var_names, model_info):
