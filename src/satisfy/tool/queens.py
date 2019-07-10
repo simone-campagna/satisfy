@@ -1,7 +1,7 @@
 import collections
 import itertools
 
-from ..solver import ModelSolver, VarSelectionPolicy
+from ..solver import ModelSolver, SelectVar, SelectValue
 
 __all__ = [
     'QueensSolver',
@@ -10,8 +10,10 @@ __all__ = [
 
 class QueensSolver(ModelSolver):
     def __init__(self, board_size, **args):
-        if args.get('var_selection_policy', None) is None:
-            args['var_selection_policy'] = VarSelectionPolicy.GROUPS
+        if args.get('select_var', None) is None:
+            args['select_var'] = SelectVar.group_prio
+        if args.get('select_value', None) is None:
+            args['select_value'] = SelectValue.max_value
         super().__init__(**args)
         model = self._model
         queens = [model.add_int_variable(domain=range(board_size), name="q_{}".format(r)) for r in range(board_size)]

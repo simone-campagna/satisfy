@@ -1,5 +1,5 @@
 from .model import Model
-from .solver import ModelSolver, VarSelectionPolicy
+from .solver import ModelSolver, SelectVar, SelectValue
 
 __all__ = [
     'GraphLabelingSolver',
@@ -8,8 +8,10 @@ __all__ = [
 
 class GraphLabelingSolver(ModelSolver):
     def __init__(self, graph, labels, **args):
-        if args.get('var_selection_policy', None) is None:
-            args['var_selection_policy'] = VarSelectionPolicy.ORDERED
+        if args.get('select_var', None) is None:
+            args['select_var'] = SelectVar.in_order
+        if args.get('select_value', None) is None:
+            args['select_value'] = SelectValue.min_value
         super().__init__(**args)
         self._graph = graph
         self._labels = {label_id: label for label_id, label in enumerate(labels)}

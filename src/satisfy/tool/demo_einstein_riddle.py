@@ -27,7 +27,7 @@ def print_einstein_riddle_solution(solution):
         print(fmt.format(hordinal=ordinal[hindex], found=found, **var_d))
 
 
-def einstein(timeout, limit, show_model):
+def einstein(timeout, limit, show_model, show_stats):
     einstein_solver = EinsteinRiddleSolver(timeout=timeout, limit=limit)
     print(einstein_solver.riddle())
 
@@ -39,4 +39,5 @@ def einstein(timeout, limit, show_model):
         num_solutions += 1
         print("\n=== solution {} ===".format(num_solutions))
         print_einstein_riddle_solution(solution)
-    print_solve_stats(einstein_solver.get_stats())
+    if show_stats:
+        print_solve_stats(einstein_solver.get_stats())

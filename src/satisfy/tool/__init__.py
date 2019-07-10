@@ -1,10 +1,12 @@
 import argparse
 
+import argcomplete
+
 from ..utils import INFINITY
 
 from .demo_cryptarithm import (
     cryptarithm,
-    default_cryptarithm_source,
+    default_cryptarithm_system,
 )
 from .einstein_riddle import (
     EinsteinRiddleSolver,
@@ -72,7 +74,7 @@ Satisfy tool - show some examples.
 """,
         **common_args)
 
-    solve_args = ["timeout", "limit", "show_model"]
+    solve_args = ["timeout", "limit", "show_model", "show_stats"]
 
     subparsers = top_level_parser.add_subparsers()
     top_level_parser.set_defaults(
@@ -112,7 +114,7 @@ an unknown value. For instance:
         function_args=["input_file"] + solve_args)
 
     graph_labeling_parser = subparsers.add_parser(
-        "graph_labeling",
+        "graph-labeling",
         description="""\
 Solve a graph labeling problem.
 
@@ -128,7 +130,7 @@ For instance:
         function_args=["input_file", "labels"] + solve_args)
 
     ascii_map_coloring_parser = subparsers.add_parser(
-        "ascii_map_coloring",
+        "ascii-map-coloring",
         description="""\
 Solve a map_coloring problem.
 
@@ -212,7 +214,7 @@ attacking queens.
         help="board size")
 
     einstein_parser = subparsers.add_parser(
-        "einstein",
+        "einstein-riddle",
         description="""\
 Solve the Einstein's riddle:
 """ + EinsteinRiddleSolver.riddle(),
@@ -228,11 +230,11 @@ Solve cryptarithms, for instance:
 
 {example}
 
-""".format(example=default_cryptarithm_source()),
+""".format(example=' '.join(default_cryptarithm_system())),
         **common_args)
     cryptarithm_parser.set_defaults(
         function=cryptarithm,
-        function_args=["source", "avoid_leading_zeros"] + solve_args)
+        function_args=["system", "avoid_leading_zeros"] + solve_args)
 
     cryptarithm_parser.add_argument(
         "-z", "--avoid-leading-zeros",
@@ -242,9 +244,9 @@ Solve cryptarithms, for instance:
         help="avoid leading zeros in numbers")
 
     cryptarithm_parser.add_argument(
-        "source",
-        nargs='?', default=None,
-        help="cryptarithm source")
+        "system",
+        nargs='*',
+        help="cryptarithm")
 
     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
                      graph_labeling_parser, ascii_map_coloring_parser,
@@ -266,12 +268,38 @@ Solve cryptarithms, for instance:
             type=int,
             help="max number of solutions")
 
-        parser.add_argument(
-            "-s", "--show-model",
-            default=False,
-            action="store_true",
-            help="show model variables and constraints")
+        def _default(b_value):
+            if b_value:
+                return " (default)"
+            return ""
 
+        show_model_group = parser.add_mutually_exclusive_group()
+        default_show_model = False
+        show_model_group.add_argument(
+            "-m", "--show-model",
+            default=default_show_model,
+            action="store_true",
+            help="show model variables and constraints" + _default(default_show_model))
+        show_model_group.add_argument(
+            "-M", "--no-show-model",
+            default=default_show_model,
+            action="store_false",
+            help="show model variables and constraints" + _default(not default_show_model))
+
+        show_stats_group = parser.add_mutually_exclusive_group()
+        default_show_stats = True
+        show_stats_group.add_argument(
+            "-s", "--show-stats",
+            default=default_show_stats,
+            action="store_true",
+            help="show solver statistics" + _default(default_show_stats))
+        show_stats_group.add_argument(
+            "-S", "--no-show-stats",
+            default=default_show_stats,
+            action="store_false",
+            help="show solver statistics" + _default(not default_show_stats))
+
+    argcomplete.autocomplete(top_level_parser)
     namespace = top_level_parser.parse_args()
 
     function = namespace.function

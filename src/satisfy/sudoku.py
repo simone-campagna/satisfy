@@ -2,7 +2,7 @@ import collections
 import itertools
 
 from .model import Model
-from .solver import ModelSolver
+from .solver import ModelSolver, SelectVar, SelectValue
 
 __all__ = [
     'SudokuSolver',
@@ -18,6 +18,10 @@ class SudokuSolver(ModelSolver):
     def __init__(self, schema, **args):
         if args.get('limit', None) is None:
             args['limit'] = 1
+        if args.get('select_var', None) is None:
+            args['select_var'] = SelectVar.group_prio
+        if args.get('select_value', None) is None:
+            args['select_value'] = SelectValue.min_value
         super().__init__(**args)
         model = self._model
         block_size = 3

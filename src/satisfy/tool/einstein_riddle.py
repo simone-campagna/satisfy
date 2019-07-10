@@ -1,4 +1,4 @@
-from ..solver import ModelSolver, VarSelectionPolicy
+from ..solver import ModelSolver, SelectVar, SelectValue
 
 __all__ = [
     'EinsteinRiddleSolver',
@@ -25,8 +25,10 @@ class EinsteinRiddleSolver(ModelSolver):
     )
 
     def __init__(self, **args):
-        if args.get('var_selection_policy', None) is None:
-            args['var_selection_policy'] = VarSelectionPolicy.MIN_BOUND
+        if args.get('select_var', None) is None:
+            args['select_var'] = SelectVar.min_domain
+        if args.get('select_value', None) is None:
+            args['select_value'] = SelectValue.min_value
         super().__init__(**args)
         model = self._model
 
