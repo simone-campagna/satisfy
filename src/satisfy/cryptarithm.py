@@ -29,7 +29,7 @@ class CryptarithmSolver(ModelSolver):
         self._expressions = []
         mod_sources = []
         for source in system:
-            source = source.upper()
+            source = source.upper().replace('\n', ' ')
             mod_source = source
             offset = 0
             for m in word.finditer(source):

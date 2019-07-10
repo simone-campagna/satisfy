@@ -1,4 +1,5 @@
 import argparse
+import json
 
 import argcomplete
 
@@ -52,6 +53,11 @@ def type_on_off(x):
         return False
     else:
         return bool(int(x))
+
+
+def json_file(filename):
+    with open(filename, "r") as f_in:
+        return json.load(f_in)
 
 
 def main():
@@ -243,10 +249,20 @@ Solve cryptarithms, for instance:
         default=True,
         help="avoid leading zeros in numbers")
 
-    cryptarithm_parser.add_argument(
-        "system",
-        nargs='*',
-        help="cryptarithm")
+    input_group = cryptarithm_parser.add_mutually_exclusive_group()
+    input_group.add_argument(
+        "-i", "--input-file",
+        dest="system",
+        metavar="F",
+        default=None,
+        type=json_file,
+        help="input JSON filename")
+    input_group.add_argument(
+        "-e", "--equation",
+        dest="system",
+        action="append",
+        default=[],
+        help="cryptarithm equation")
 
     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
                      graph_labeling_parser, ascii_map_coloring_parser,

@@ -45,9 +45,7 @@ def cryptarithm(system, avoid_leading_zeros, timeout, limit, show_model, show_st
     if not system:
         system = default_cryptarithm_system()
         print("No input source - using default cryptarithm example:")
-        print_cryptarithm_system(system)
-    else:
-        print("system:", system)
+    print_cryptarithm_system(system)
 
     cryptarithm_solver = CryptarithmSolver(system, avoid_leading_zeros=avoid_leading_zeros, timeout=timeout, limit=limit)
 
