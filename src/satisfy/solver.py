@@ -33,6 +33,7 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
         'var_group_prio',
         'groups',
         'var_groups',
+        'extra',
     ]
 )
 
@@ -193,11 +194,7 @@ class Solver(object):
     def compile_constraints(self, value):
         self._compile_constraints = bool(value)
 
-    def solve(self, model, *, additional_constraints=(), **args):
-        select_var = args.get('select_var', self._select_var)
-        select_value = args.get('select_value', self._select_value)
-        timeout = args.get('timeout', self._timeout)
-        limit = args.get('limit', self._limit)
+    def make_model_info(self, model, *, objective_constraints=(), **args):
         compile_constraints = args.get('compile_constraints', self._compile_constraints)
 
         # 1. internal data structures:
@@ -213,7 +210,7 @@ class Solver(object):
         var_bounds = collections.Counter()
         groups = {}
         var_groups = collections.defaultdict(list)
-        for constraint in itertools.chain(model.constraints(), additional_constraints):
+        for constraint in itertools.chain(model.constraints(), objective_constraints):
             if compile_constraints:
                 constraint.compile()
             c_vars = set(filter(lambda v: v in var_names_set, constraint.vars()))
@@ -247,7 +244,7 @@ class Solver(object):
 
         reduced_domains = {}
         domains = collections.ChainMap(reduced_domains, initial_domains)
-        model_info = ModelInfo(
+        return ModelInfo(
             initial_domains=initial_domains,
             reduced_domains=reduced_domains,
             domains=domains,
@@ -259,7 +256,22 @@ class Solver(object):
             var_group_prio=var_group_prio,
             groups=groups,
             var_groups=var_groups,
+            extra={}
         )
+
+    def solve(self, model, *, objective_constraints=(), **args):
+        select_var = args.get('select_var', self._select_var)
+        select_value = args.get('select_value', self._select_value)
+        timeout = args.get('timeout', self._timeout)
+        limit = args.get('limit', self._limit)
+
+        # 1. make model_info:
+        model_info = self.make_model_info(model, objective_constraints=objective_constraints, **args)
+        var_names = model_info.var_names
+        reduced_domains = model_info.reduced_domains
+        initial_domains = model_info.initial_domains
+        var_ad = model_info.var_ad
+        var_constraints = model_info.var_constraints
 
         # 2. solve:
         stack = []
@@ -357,7 +369,7 @@ class Solver(object):
             if not isinstance(objective, Objective):
                 raise ValueError("{} is not an Objective".format(objective))
             objective_constraints.append(objective.make_constraint(model))
-        args['additional_constraints'] = tuple(args.get('additional_constraints', ())) + tuple(objective_constraints)
+        args['objective_constraints'] = tuple(args.get('objective_constraints', ())) + tuple(objective_constraints)
         for solution in self.solve(model, **args):
             # print("sol found:", solution)
             for objective, constraint in zip(objectives, objective_constraints):
