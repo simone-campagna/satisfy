@@ -11,17 +11,11 @@ from .utils import INFINITY, Timer, SolveStats
 __all__ = [
     'ModelInfo',
     'OptimalSolution',
+    'SelectVar',
+    'SelectValue',
     'Solver',
     'ModelSolver',
     'ModelOptimizer',
-    'in_order',
-    'min_bound',
-    'max_bound',
-    'min_domain',
-    'max_domain',
-    'group_prio',
-    'min_value',
-    'max_value',
 ]
 
 
@@ -48,88 +42,92 @@ OptimalSolution = collections.namedtuple(  # pylint: disable=invalid-name
     "is_optimal solution")
 
 
-def in_order(bound_var_names, unbound_var_names, model_info):
-    var_name = unbound_var_names.pop(0)
-    return var_name, unbound_var_names
+class SelectVar:
+    @classmethod
+    def in_order(cls, bound_var_names, unbound_var_names, model_info):
+        var_name = unbound_var_names.pop(0)
+        return var_name, unbound_var_names
 
-
-def _sort_bound(reverse, bound_var_names, unbound_var_names, model_info):
-    var_map = model_info.var_map
-    dct = {}
-    for var_name in unbound_var_names:
+    @classmethod
+    def _sort_bound(cls, bound_var_names, unbound_var_names, model_info):
+        var_map = model_info.var_map
+        dct = {}
+        for var_name in unbound_var_names:
+            if bound_var_names:
+                other_var_names = bound_var_names
+            else:
+                other_var_names = filter(lambda v: v != var_name, model_info.var_names)
+            count = 0
+            for other_var_name in other_var_names:
+                count += var_map[var_name][other_var_name]
+            dct[var_name] = count
+        unbound_var_names.sort(key=lambda v: dct[v])
+    
+    @classmethod
+    def min_bound(cls, bound_var_names, unbound_var_names, model_info):
+        if len(bound_var_names) < 2:
+            cls._sort_bound(bound_var_names, unbound_var_names, model_info)
+        var_name = unbound_var_names.pop(0)
+        return var_name, unbound_var_names
+    
+    @classmethod
+    def max_bound(cls, bound_var_names, unbound_var_names, model_info):
+        if len(bound_var_names) < 2:
+            cls._sort_bound(bound_var_names, unbound_var_names, model_info)
+        var_name = unbound_var_names.pop(-1)
+        return var_name, unbound_var_names
+    
+    @classmethod
+    def _sort_domain(cls, bound_var_names, unbound_var_names, model_info):
         if bound_var_names:
-            other_var_names = bound_var_names
+            var_domains = model_info.domains
         else:
-            other_var_names = filter(lambda v: v != var_name, model_info.var_names)
-        count = 0
-        for other_var_name in other_var_names:
-            count += var_map[var_name][other_var_name]
-        dct[var_name] = count
-    unbound_var_names.sort(key=lambda v: dct[v], reverse=reverse)
+            var_domains = model_info.initial_domains
+        unbound_var_names.sort(key=lambda v: len(var_domains[v]))
+    
+    @classmethod
+    def min_domain(cls, bound_var_names, unbound_var_names, model_info):
+        if len(bound_var_names) < 2:
+            cls._sort_domain(bound_var_names, unbound_var_names, model_info)
+        var_name = unbound_var_names.pop(0)
+        return var_name, unbound_var_names
+    
+    @classmethod
+    def max_domain(cls, bound_var_names, unbound_var_names, model_info):
+        if len(bound_var_names) < 2:
+            cls._sort_domain(bound_var_names, unbound_var_names, model_info)
+        var_name = unbound_var_names.pop(-1)
+        return var_name, unbound_var_names
+    
+    @classmethod
+    def group_prio(cls, bound_var_names, unbound_var_names, model_info):
+        if not bound_var_names:
+            var_group_prio = model_info.var_group_prio
+            var_bounds = model_info.var_bounds
+            var_domains = model_info.initial_domains
+            unbound_var_names.sort(key=lambda v: (var_group_prio[v], var_bounds[v], len(var_domains[v])))
+        var_name = unbound_var_names.pop(0)
+        return var_name, unbound_var_names
 
 
-def min_bound(bound_var_names, unbound_var_names, model_info):
-    if len(bound_var_names) < 2:
-        _sort_bound(False, bound_var_names, unbound_var_names, model_info)
-    var_name = unbound_var_names.pop(0)
-    return var_name, unbound_var_names
-
-
-def max_bound(bound_var_names, unbound_var_names, model_info):
-    if len(bound_var_names) < 2:
-        _sort_bound(True, bound_var_names, unbound_var_names, model_info)
-    var_name = unbound_var_names.pop(0)
-    return var_name, unbound_var_names
-
-
-def _sort_domain(reverse, bound_var_names, unbound_var_names, model_info):
-    if bound_var_names:
-        var_domains = model_info.domains
-    else:
-        var_domains = model_info.initial_domains
-    unbound_var_names.sort(key=lambda v: len(var_domains[v]), reverse=reverse)
-
-
-def min_domain(bound_var_names, unbound_var_names, model_info):
-    if len(bound_var_names) < 2:
-        _sort_domain(False, bound_var_names, unbound_var_names, model_info)
-    var_name = unbound_var_names.pop(0)
-    return var_name, unbound_var_names
-
-
-def max_domain(bound_var_names, unbound_var_names, model_info):
-    if len(bound_var_names) < 2:
-        _sort_domain(True, bound_var_names, unbound_var_names, model_info)
-    var_name = unbound_var_names.pop(0)
-    return var_name, unbound_var_names
-
-
-def group_prio(bound_var_names, unbound_var_names, model_info):
-    if not bound_var_names:
-        var_group_prio = model_info.var_group_prio
-        var_bounds = model_info.var_bounds
-        var_domains = model_info.initial_domains
-        unbound_var_names.sort(key=lambda v: (var_group_prio[v], var_bounds[v], len(var_domains[v])))
-    var_name = unbound_var_names.pop(0)
-    return var_name, unbound_var_names
-
-
-def min_value(var_name, substitution, reduced_domain):
-    value = min(reduced_domain)
-    reduced_domain.discard(value)
-    return value, reduced_domain
-
-
-def max_value(var_name, substitution, reduced_domain):
-    value = max(reduced_domain)
-    reduced_domain.discard(value)
-    return value, reduced_domain
+class SelectValue:
+    @classmethod
+    def min_value(cls, var_name, substitution, reduced_domain):
+        value = min(reduced_domain)
+        reduced_domain.discard(value)
+        return value, reduced_domain
+    
+    @classmethod
+    def max_value(cls, var_name, substitution, reduced_domain):
+        value = max(reduced_domain)
+        reduced_domain.discard(value)
+        return value, reduced_domain
 
 
 class Solver(object):
     def __init__(self,
-                 select_var=max_bound,
-                 select_value=min_value,
+                 select_var=SelectVar.max_bound,
+                 select_value=SelectValue.min_value,
                  timeout=None,
                  limit=None,
                  compile_constraints=True):

@@ -3,7 +3,7 @@ import itertools
 import operator
 import re
 
-from .solver import ModelSolver, max_bound, max_value
+from .solver import ModelSolver, SelectVar, SelectValue
 
 __all__ = [
     'CryptarithmSolver',
@@ -14,9 +14,9 @@ __all__ = [
 class CryptarithmSolver(ModelSolver):
     def __init__(self, system, avoid_leading_zeros=True, **args):
         if args.get('select_var', None) is None:
-            args['select_var'] = max_bound
+            args['select_var'] = SelectVar.max_bound
         if args.get('select_value', None) is None:
-            args['select_value'] = max_value
+            args['select_value'] = SelectValue.max_value
         if isinstance(system, str):
             system = [system]
         numbers = set()
