@@ -11,10 +11,12 @@ __all__ = [
 
 VarInfo = collections.namedtuple('VarInfo', 'size start_value end_value')
     
+
+
 class NonogramSolver(ModelSolver):
     def __init__(self, nonogram, **args):
         if args.get('select_var', None) is None:
-            args['select_var'] = SelectVar.min_domain
+            args['select_var'] = SelectVar.max_bound
         if args.get('select_value', None) is None:
             args['select_value'] = SelectValue.min_value
         super().__init__(**args)

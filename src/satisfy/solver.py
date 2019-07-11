@@ -1,6 +1,7 @@
 import abc
 import collections
 import itertools
+import random
 
 from .constraint import AllDifferentConstraint
 from .model import Model
@@ -22,6 +23,8 @@ __all__ = [
 ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
     'ModelInfo',
     [
+        'solvable',
+        'original_domains',
         'initial_domains',
         'reduced_domains',
         'domains',
@@ -45,37 +48,38 @@ OptimalSolution = collections.namedtuple(  # pylint: disable=invalid-name
 
 class SelectVar:
     @classmethod
+    def random(cls, bound_var_names, unbound_var_names, model_info):
+        idx = random.randrange(0, len(unbound_var_names))
+        var_name = unbound_var_names.pop(idx)
+        return var_name, unbound_var_names
+
+    @classmethod
     def in_order(cls, bound_var_names, unbound_var_names, model_info):
         var_name = unbound_var_names.pop(0)
         return var_name, unbound_var_names
 
     @classmethod
-    def _sort_bound(cls, bound_var_names, unbound_var_names, model_info):
+    def _sort_bound(cls, bound_var_names, unbound_var_names, model_info, minmax):
         var_map = model_info.var_map
-        dct = {}
         for var_name in unbound_var_names:
             if bound_var_names:
                 other_var_names = bound_var_names
             else:
                 other_var_names = filter(lambda v: v != var_name, model_info.var_names)
-            count = 0
-            for other_var_name in other_var_names:
-                count += var_map[var_name][other_var_name]
-            dct[var_name] = count
-        unbound_var_names.sort(key=lambda v: dct[v])
+        unbound_var_names.sort(key=lambda v: minmax(var_map[v].values()))
     
     @classmethod
     def min_bound(cls, bound_var_names, unbound_var_names, model_info):
-        if len(bound_var_names) < 2:
-            cls._sort_bound(bound_var_names, unbound_var_names, model_info)
+        if len(bound_var_names) == 0:
+            cls._sort_bound(bound_var_names, unbound_var_names, model_info, min)
         var_name = unbound_var_names.pop(0)
         return var_name, unbound_var_names
     
     @classmethod
     def max_bound(cls, bound_var_names, unbound_var_names, model_info):
-        if len(bound_var_names) < 2:
-            cls._sort_bound(bound_var_names, unbound_var_names, model_info)
-        var_name = unbound_var_names.pop(-1)
+        if len(bound_var_names) == 0:
+            cls._sort_bound(bound_var_names, unbound_var_names, model_info, max)
+        var_name = unbound_var_names.pop(0)
         return var_name, unbound_var_names
     
     @classmethod
@@ -83,19 +87,19 @@ class SelectVar:
         if bound_var_names:
             var_domains = model_info.domains
         else:
-            var_domains = model_info.initial_domains
+            var_domains = model_info.original_domains
         unbound_var_names.sort(key=lambda v: len(var_domains[v]))
     
     @classmethod
     def min_domain(cls, bound_var_names, unbound_var_names, model_info):
-        if len(bound_var_names) < 2:
+        if len(bound_var_names) < 1:
             cls._sort_domain(bound_var_names, unbound_var_names, model_info)
         var_name = unbound_var_names.pop(0)
         return var_name, unbound_var_names
     
     @classmethod
     def max_domain(cls, bound_var_names, unbound_var_names, model_info):
-        if len(bound_var_names) < 2:
+        if len(bound_var_names) < 1:
             cls._sort_domain(bound_var_names, unbound_var_names, model_info)
         var_name = unbound_var_names.pop(-1)
         return var_name, unbound_var_names
@@ -112,6 +116,12 @@ class SelectVar:
 
 
 class SelectValue:
+    @classmethod
+    def random(cls, var_name, substitution, reduced_domain):
+        value = random.sample(reduced_domain, 1)[0]
+        reduced_domain.discard(value)
+        return value, reduced_domain
+
     @classmethod
     def min_value(cls, var_name, substitution, reduced_domain):
         value = min(reduced_domain)
@@ -131,6 +141,7 @@ class Solver(object):
                  select_value=SelectValue.min_value,
                  timeout=None,
                  limit=None,
+                 reduce_max_depth=1,
                  compile_constraints=True):
         self._select_var = None
         self.select_var = select_var
@@ -142,6 +153,8 @@ class Solver(object):
         self.limit = limit
         self._compile_constraints = None
         self.compile_constraints = compile_constraints
+        self._reduce_max_depth = None
+        self.reduce_max_depth = reduce_max_depth
         self._timer = None
         self._interrupt = None
         self._reset()
@@ -194,13 +207,25 @@ class Solver(object):
     def compile_constraints(self, value):
         self._compile_constraints = bool(value)
 
+    @property
+    def reduce_max_depth(self):
+        return self._reduce_max_depth
+
+    @reduce_max_depth.setter
+    def reduce_max_depth(self, value):
+        self._reduce_max_depth = int(value)
+
     def make_model_info(self, model, *, _additional_constraints=(), **args):
         compile_constraints = args.get('compile_constraints', self._compile_constraints)
+        reduce_max_depth = args.get('reduce_max_depth', self._reduce_max_depth)
 
         # 1. internal data structures:
         variables = model.variables()
+        original_domains = {
+            var_name: list(var_info.domain) for var_name, var_info in variables.items() if var_info.domain is not None
+        }
         initial_domains = {
-            var_name: var_info.domain for var_name, var_info in variables.items() if var_info.domain is not None
+            var_name: list(var_info.domain) for var_name, var_info in variables.items() if var_info.domain is not None
         }
         var_names = list(initial_domains)
         var_names_set = set(var_names)
@@ -210,12 +235,12 @@ class Solver(object):
         var_bounds = collections.Counter()
         groups = {}
         var_groups = collections.defaultdict(list)
+        solvable = True
         for constraint in itertools.chain(model.constraints(), _additional_constraints):
             if compile_constraints:
                 constraint.compile()
             c_vars = set(filter(lambda v: v in var_names_set, constraint.vars()))
-            for c_var in c_vars:
-                var_bounds[c_var] += len(c_vars) - 1
+            accepted = True
             if isinstance(constraint, AllDifferentConstraint):
                 groupid = len(groups)
                 groups[groupid] = c_vars
@@ -228,11 +253,32 @@ class Solver(object):
                     for other_var_name in other_var_names:
                         var_map[var_name][other_var_name] += 1
             else:
+                if reduce_max_depth >= 0 and len(c_vars) == 0:
+                    b_value = constraint.evaluate({})
+                    # print("discard {}: always -> {}".format(constraint, b_value))
+                    if not b_value:
+                        solvable = False
+                    accepted = False
+                elif reduce_max_depth >= 1 and len(c_vars) == 1:
+                    c_var = list(c_vars)[0]
+                    var_domain = []
+                    for value in initial_domains[c_var]:
+                        if constraint.evaluate({c_var: value}):
+                            var_domain.append(value)
+                    if initial_domains[c_var] != var_domain:
+                        # print("discard {}: domain reduced: {} -> {}".format(constraint, initial_domains[c_var], var_domain))
+                        initial_domains[c_var] = var_domain
+                    # else:
+                    #     print("discard {}: always True on domain {}".format(constraint, initial_domains[c_var]))
+                    accepted = False
                 for var_name in c_vars:
                     var_constraints[var_name].append(constraint)
                     other_var_names = c_vars.difference({var_name})
                     for other_var_name in other_var_names:
                         var_map[var_name][other_var_name] += 1
+            if accepted:
+                for c_var in c_vars:
+                    var_bounds[c_var] += len(c_vars) - 1
 
         group_prio = {groupid: groupid for groupid in groups}  #idx for idx, groupid in enumerate(sorted(groups, key=lambda x: (group_bounds[x], group_sizes[x]), reverse=True))}
         var_group_prio = {}
@@ -245,6 +291,8 @@ class Solver(object):
         reduced_domains = {}
         domains = collections.ChainMap(reduced_domains, initial_domains)
         return ModelInfo(
+            solvable=solvable,
+            original_domains=original_domains,
             initial_domains=initial_domains,
             reduced_domains=reduced_domains,
             domains=domains,
@@ -267,6 +315,10 @@ class Solver(object):
 
         # 1. make model_info:
         model_info = self.make_model_info(model, _additional_constraints=_additional_constraints, **args)
+
+        if not (model_info.solvable and model_info.var_names):
+            return
+
         var_names = model_info.var_names
         reduced_domains = model_info.reduced_domains
         initial_domains = model_info.initial_domains
@@ -277,6 +329,12 @@ class Solver(object):
         stack = []
         if var_names:
             var_name, unbound_var_names = select_var([], var_names, model_info)
+            # o = model_info.original_domains
+            # i = model_info.initial_domains
+            # m = model_info.var_map
+            # for v in [var_name] + unbound_var_names:
+            #     print("{:16s} {:4d} {:4d} {:4d}".format(v, len(o[v]), len(i[v]), sum(m[v].values())))
+            # input("===!!!===")
             stack.append(([var_name], unbound_var_names, {}))
 
         timer = self._timer
