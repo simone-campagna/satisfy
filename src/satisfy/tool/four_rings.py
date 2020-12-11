@@ -33,21 +33,16 @@ such that the sum of the letters inside of each of the four large squares add up
 """
     def __init__(self, low=0, high=9, unique=True, **args):
         if args.get('select_var', None) is None:
-            args['select_var'] = SelectVar.group_prio
-        if args.get('select_value', None) is None:
-            args['select_value'] = SelectValue.max_value
+            args['select_var'] = SelectVar.min_bound
+        # if args.get('select_value', None) is None:
+        #     args['select_value'] = SelectValue.max_value
         super().__init__(**args)
         model = self._model
         v_domain = list(range(low, high + 1))
-        # s_factor = len(self.__keys__)
-        # s_factor = 3
-        # s_domain = range(min(v_domain) * s_factor, 1 + max(v_domain) * s_factor)
         v = {key: model.add_int_variable(domain=v_domain, name=key) for key in 'abcdefg'}
-        # s = model.add_int_variable(domain=s_domain, name='v_sum')
         if unique:
             model.add_all_different_constraint(v.values())
 
-        #model.add_constraint(v['a'] + v['b'] == s)
         model.add_constraint(v['b'] + v['c'] + v['d'] == v['a'] + v['b'])
         model.add_constraint(v['d'] + v['e'] + v['f'] == v['a'] + v['b'])
         model.add_constraint(v['f'] + v['g'] == v['a'] + v['b'])

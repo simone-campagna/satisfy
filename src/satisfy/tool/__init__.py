@@ -276,7 +276,7 @@ Solve the 4-rings problem:
 
 {description}
 
-""".format(description=four_rings_description),
+""".format(description=four_rings_description()),
         **common_args)
     four_rings_parser.set_defaults(
         function=four_rings,

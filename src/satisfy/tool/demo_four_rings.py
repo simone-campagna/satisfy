@@ -50,4 +50,4 @@ def four_rings(low, high, unique, compact, timeout, limit, show_model, show_stat
 
 
 def four_rings_description():
-    return '\n'.join([fr_solver.__task__, fr_solver.__draw__])
+    return '\n'.join([FourRingsSolver.__task__, FourRingsSolver.__draw__])
