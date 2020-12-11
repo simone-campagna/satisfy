@@ -1,5 +1,7 @@
+import builtins
 import copy
 import collections
+import keyword
 import logging
 import re
 import types
@@ -27,6 +29,8 @@ VariableInfo = collections.namedtuple("VariableInfo", "variable domain")
 
 
 class Model(object):
+    __reserved__ = set(keyword.kwlist)
+    __builtin_names__ = set(dir(builtins))
     __re_name__ = re.compile(r'^[a-zA-Z]\w*$')
 
     def __init__(self):
@@ -47,6 +51,10 @@ class Model(object):
     def _check_name(self, name):
         if not self.__re_name__.match(name):
             raise ValueError("bad name {!r}".format(name))
+        if name in self.__reserved__:
+            raise ValueError("bad name {!r}: this is a reserved keyword".format(name))
+        if name in self.__builtin_names__:
+            raise ValueError("bad name {!r}: this is a reserved symbol name".format(name))
 
     def _get_variable(self, name):
         if name is None:

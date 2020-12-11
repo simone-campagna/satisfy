@@ -38,6 +38,10 @@ from .demo_sudoku import (
     sudoku,
     default_sudoku_source,
 )
+from .demo_four_rings import (
+    four_rings,
+    four_rings_description,
+)
 
 
 __all__ = [
@@ -77,6 +81,7 @@ Satisfy tool - show some examples.
 * cryptarithm: solve cryptarithms, i.e. arithmetic equations where some numbers
   are substituted with letters (for instance 'AA3*55==6CAB')
 * nonogram: solve nonograms
+* 4-rings: solve the 4 rings problem
 """,
         **common_args)
 
@@ -264,9 +269,49 @@ Solve cryptarithms, for instance:
         default=[],
         help="cryptarithm equation")
 
+    four_rings_parser = subparsers.add_parser(
+        "4-rings",
+        description="""\
+Solve the 4-rings problem:
+
+{description}
+
+""".format(description=four_rings_description),
+        **common_args)
+    four_rings_parser.set_defaults(
+        function=four_rings,
+        function_args=["low", "high", "unique", "compact"] + solve_args)
+
+    four_rings_parser.add_argument(
+        '-L', '--low',
+        type=int, default=0,
+        help='minimum value for the variables (defaults to 0)')
+
+    four_rings_parser.add_argument(
+        '-H', '--high',
+        type=int, default=9,
+        help='maximum value for the variables (defaults to 0)')
+    fr_unique_mgrp = four_rings_parser.add_mutually_exclusive_group()
+    fr_unique_kwargs = {'dest': 'unique', 'default': True}
+    fr_unique_mgrp.add_argument(
+        '-u', '--unique',
+        action='store_true',
+        help='unique variable values (default)',
+        **fr_unique_kwargs)
+    fr_unique_mgrp.add_argument(
+        '-U', '--not-unique',
+        action='store_false',
+        help='allows not unique variable values',
+        **fr_unique_kwargs)
+    four_rings_parser.add_argument(
+        '-c', '--compact',
+        default=False,
+        action='store_true',
+        help='compact output')
+
     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
                      graph_labeling_parser, ascii_map_coloring_parser,
-                     cryptarithm_parser, nonogram_parser]
+                     cryptarithm_parser, nonogram_parser, four_rings_parser]
     for parser in solve_parsers:
         parser.add_argument(
             "-t", "--timeout",
