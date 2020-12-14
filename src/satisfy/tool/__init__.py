@@ -74,10 +74,10 @@ Satisfy tool - show some examples.
 
 * knapsack: solve a generic multidimensional knapsack problem
 * sudoku: solve a sudoku schema
-* graph_labeling: solve a graph labeling problem
-* ascii_map_coloring: solve a map coloring problem based on a simple ascii map
+* graph-labeling: solve a graph labeling problem
+* ascii-map-coloring: solve a map coloring problem based on a simple ascii map
 * queens: solve the N-queens problem, for a chessboard with side N
-* einstein: solve the Einstein's riddle
+* einstein-riddle: solve the Einstein's riddle
 * cryptarithm: solve cryptarithms, i.e. arithmetic equations where some numbers
   are substituted with letters (for instance 'AA3*55==6CAB')
 * nonogram: solve nonograms

@@ -5,6 +5,7 @@ import logging
 
 
 __all__ = [
+    'expression_globals',
     'Expression',
     'Const',
     'Variable',
@@ -19,6 +20,18 @@ def prod(values, start=1):
     for value in values:
         start *= value
     return start
+
+
+EXPRESSION_GLOBALS = {
+    'sum': sum,
+    'prod': prod,
+    'min': min,
+    'max': max,
+}
+
+
+def expression_globals():
+    return EXPRESSION_GLOBALS
 
 
 class EvaluationError(Exception):
@@ -56,9 +69,14 @@ class Expression(abc.ABC):
         alist.append("**__dummy_kwargs")
         return "lambda {}: ({})".format(", ".join(alist), self.py_expr())
 
+    def compile_py_expr(self):
+        return compile(self.py_expr(), '<stdin>', 'eval')
+
     def compile_py_function(self):
         py_source = self.py_source()
-        return eval(py_source, {'sum': sum, 'prod': prod})
+        #print(py_source)
+        #input("...")
+        return eval(py_source, EXPRESSION_GLOBALS)
         # def ff(substitution):
         #     print("///", sorted(substitution.items(), key=lambda x: x[0]))
         #     return fn(**substitution)
@@ -408,10 +426,12 @@ def _make_accumulate(expressions, neutral_element, absorbing_element, binop_clas
 
 
 def _make_prod(l_expr, r_expr):
+    # return Mul(l_expr, r_expr)
     return _make_accumulate([l_expr, r_expr], 1, 0, Mul, Prod)
 
 
 def _make_sum(l_expr, r_expr):
+    # return Add(l_expr, r_expr)
     return _make_accumulate([l_expr, r_expr], 0, None, Add, Sum)
 
 

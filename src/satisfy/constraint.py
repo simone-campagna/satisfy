@@ -1,6 +1,7 @@
 import abc
 
 from .expression import (
+    expression_globals,
     Expression,
 )
 
@@ -65,19 +66,25 @@ class ExpressionConstraint(Constraint):
     def is_compiled(self):
         return self._evaluate_function is not None
 
+    def compile_function(self):
+        ce = self._expression.compile_py_expr()
+        gd = expression_globals()
+        return  lambda subs: eval(ce, gd, subs)
+
     def compile(self):
-        self._evaluate_function = self._expression.as_function()
+        self._evaluate_function = self.compile_function()
 
     def evaluate_function(self):
         if self._evaluate_function is None:
-            self._evaluate_function = self._expression.as_function()
+            self._evaluate_function = self.compile_function()
         return self._evaluate_function
 
     def evaluate(self, substitution):
-        if self._evaluate_function is None:
+        efun = self._evaluate_function
+        if efun is None:
             return self._expression.evaluate(substitution)
         else:
-            return self._evaluate_function(**substitution)
+            return efun(substitution)
 
     def __repr__(self):
         return "{}({!r})".format(type(self).__name__, self._expression)

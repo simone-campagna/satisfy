@@ -1,4 +1,3 @@
-import builtins
 import copy
 import collections
 import keyword
@@ -13,6 +12,7 @@ from .constraint import (
     AllDifferentConstraint,
 )
 from .expression import (
+    expression_globals,
     Expression,
     Variable,
     Parameter,
@@ -30,7 +30,6 @@ VariableInfo = collections.namedtuple("VariableInfo", "variable domain")
 
 class Model(object):
     __reserved__ = set(keyword.kwlist)
-    __builtin_names__ = set(dir(builtins))
     __re_name__ = re.compile(r'^[a-zA-Z]\w*$')
 
     def __init__(self):
@@ -53,7 +52,7 @@ class Model(object):
             raise ValueError("bad name {!r}".format(name))
         if name in self.__reserved__:
             raise ValueError("bad name {!r}: this is a reserved keyword".format(name))
-        if name in self.__builtin_names__:
+        if name in expression_globals():
             raise ValueError("bad name {!r}: this is a reserved symbol name".format(name))
 
     def _get_variable(self, name):
