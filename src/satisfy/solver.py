@@ -355,30 +355,49 @@ class Solver(object):
             reduced_domain = reduced_domains.get(var_name, None)
             if reduced_domain is None:
                 bound_var_set = set(bound_var_names)
-                forbidden_values = {substitution[vname] for vname in var_ad[var_name].intersection(substitution)}
-                reduced_domain = set()
-                
-                use_constraints = set()
-                for constraint in var_constraints[var_name]:
-                    if constraint.vars() <= bound_var_set:
-                        use_constraints.add(constraint)
-
-                for value in initial_domains[var_name]:
-                    if value in forbidden_values:
-                        continue
-                    substitution[var_name] = value
-                    for constraint in use_constraints:
-                        if not constraint.evaluate(substitution):
-                            break
-                    else:
-                        reduced_domain.add(value)
-                if reduced_domain:
-                    reduced_domains[var_name] = reduced_domain
+                if True:
+                    forbidden_values = {value for vname, value in substitution.items() if vname in var_ad[var_name]}
                 else:
-                    stack.pop(-1)
-                    # print("@-1")
-                    #print("A")
-                    continue
+                    forbidden_values = {substitution[vname] for vname in var_ad[var_name].intersection(substitution)}
+
+                if True:
+                    reduced_domain = set(initial_domains[var_name]).difference(forbidden_values)
+                    for constraint in var_constraints[var_name]:
+                        if constraint.vars() <= bound_var_set:
+                            c_fun = constraint.evaluate
+                            nr_dom = set()
+                            for value in reduced_domain:
+                                substitution[var_name] = value
+                                if c_fun(substitution):
+                                    nr_dom.add(value)
+                            reduced_domain = nr_dom
+                            if not reduced_domain:
+                                break
+                    if reduced_domain:
+                        reduced_domains[var_name] = reduced_domain
+                    else:
+                        stack.pop(-1)
+                        continue
+                else:
+                    reduced_domain = set()
+                    use_constraints = set()
+                    for constraint in var_constraints[var_name]:
+                        if constraint.vars() <= bound_var_set:
+                            use_constraints.add(constraint)
+                    for value in initial_domains[var_name]:
+                        if value in forbidden_values:
+                            continue
+                        substitution[var_name] = value
+                        for constraint in use_constraints:
+                            if not constraint.evaluate(substitution):
+                                break
+                        else:
+                            reduced_domain.add(value)
+                    if reduced_domain:
+                        reduced_domains[var_name] = reduced_domain
+                    else:
+                        stack.pop(-1)
+                        continue
             elif not reduced_domain:
                 reduced_domains.pop(var_name)
                 stack.pop(-1)

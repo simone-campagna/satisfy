@@ -1,5 +1,8 @@
 import argparse
+import cProfile
+import io
 import json
+import pstats
 
 import argcomplete
 
@@ -360,13 +363,28 @@ Solve the 4-rings problem:
             action="store_false",
             help="show solver statistics" + _default(not default_show_stats))
 
+        parser.add_argument(
+            "-p", "--profile",
+            action="store_true", default=False,
+            help="enable profiling")
+
     argcomplete.autocomplete(top_level_parser)
     namespace = top_level_parser.parse_args()
+    profile = namespace.profile
 
     function = namespace.function
     kwargs = {
         arg: getattr(namespace, arg) for arg in namespace.function_args
     }
+    if profile:
+        prof = cProfile.Profile()
+        prof.enable()
     function(**kwargs)
+    if profile:
+        prof.disable()
+        s = io.StringIO()
+        ps = pstats.Stats(prof, stream=s).sort_stats('cumulative')
+        ps.print_stats()
+        print(s.getvalue())
     return
 
