@@ -55,9 +55,3 @@ such that the sum of the letters inside of each of the four large squares add up
         model.add_constraint(v['f'] + v['g'] >= min_3_value)
         model.add_constraint(v['b'] + v['c'] + v['d'] <= max_2_value)
         model.add_constraint(v['d'] + v['e'] + v['f'] <= max_2_value)
-
-    def __iter__(self):
-        model = self._model
-        solver = self._solver
-        for solution in solver.solve(model):
-            yield solution

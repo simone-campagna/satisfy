@@ -3,8 +3,7 @@ import json
 from ..nonogram import NonogramSolver, pixmap_shape, pixmap_to_nonogram
 
 from .demo_utils import (
-    print_model,
-    print_solve_stats,
+    iter_solutions,
 )
 
 __all__ = [
@@ -67,7 +66,7 @@ def pixmap_to_image(pixmap, zero=ZERO, one=ONE):
     return '\n'.join(''.join(line) for line in image)
 
 
-def nonogram(input_file, input_image, timeout, limit, show_model, show_stats):
+def nonogram(input_file, input_image, timeout, limit, show_model, show_stats, profile, compact):
     if input_file is None:
         if input_image:
             nonogram = image_to_nonogram(input_image.read())
@@ -81,13 +80,8 @@ No input file - using default nonogram:
     else:
         nonogram = json.load(input_file)
 
-    num_solutions = 0
-    nonogram_solver = NonogramSolver(nonogram, timeout=timeout, limit=limit)
-    if show_model:
-        print_model(nonogram_solver.model)
-    for pixmap in nonogram_solver:
-        num_solutions += 1
-        print("\n=== solution {} ===".format(num_solutions))
+    model_solver = NonogramSolver(nonogram, timeout=timeout, limit=limit)
+    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
+                                   profile=profile, compact=compact):
+        pixmap = model_solver.create_pixmap(solution)
         print_nonogram_pixmap(pixmap)
-    if show_stats:
-        print_solve_stats(nonogram_solver.get_stats())

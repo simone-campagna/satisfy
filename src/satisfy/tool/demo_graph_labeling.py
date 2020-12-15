@@ -5,8 +5,7 @@ import networkx as nx
 from ..graph_labeling import GraphLabelingSolver
 
 from .demo_utils import (
-    print_model,
-    print_solve_stats,
+    iter_solutions,
 )
 
 __all__ = [
@@ -79,7 +78,7 @@ def default_graph_labeling_source():
     return DEFAULT_GRAPH_LABELING_SOURCE
 
 
-def graph_labeling(input_file, labels, timeout, limit, show_model, show_stats):
+def graph_labeling(input_file, labels, timeout, limit, show_model, show_stats, profile, compact):
     if input_file is None:
         source = default_graph_labeling_source()
         print("""\
@@ -92,14 +91,7 @@ No input file - using default data:
 
     graph = nx.node_link_graph(data)
 
-    graph_labeling_solver = GraphLabelingSolver(graph, labels, timeout=timeout, limit=limit)
-    if show_model:
-        print_model(graph_labeling_solver.model)
-
-    num_solutions = 0
-    for solution in graph_labeling_solver:
-        num_solutions += 1
-        print("\n=== solution {} ===".format(num_solutions))
-        print(solution)
-    if show_stats:
-        print_solve_stats(graph_labeling_solver.get_stats())
+    model_solver = GraphLabelingSolver(graph, labels, timeout=timeout, limit=limit)
+    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
+                                   profile=profile, compact=compact):
+        print(model_solver.create_node_labels(solution))

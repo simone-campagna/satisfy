@@ -3,8 +3,7 @@ import json
 from ..sudoku import SudokuSolver
 
 from .demo_utils import (
-    print_model,
-    print_solve_stats,
+    iter_solutions,
 )
 
 __all__ = [
@@ -64,7 +63,7 @@ def print_sudoku_schema(schema):
     print(bline)
 
 
-def sudoku(input_file, timeout, limit, show_model, show_stats):
+def sudoku(input_file, timeout, limit, show_model, show_stats, profile, compact):
     if input_file is None:
         source = default_sudoku_source()
         print("""\
@@ -78,12 +77,7 @@ No input file - using default schema:
     print("=== sudoku schema ===")
     print_sudoku_schema(schema)
     num_solutions = 0
-    sudoku_solver = SudokuSolver(schema, timeout=timeout, limit=limit)
-    if show_model:
-        print_model(sudoku_solver.model)
-    for schema in sudoku_solver:
-        num_solutions += 1
-        print("\n=== solution {} ===".format(num_solutions))
+    model_solver = SudokuSolver(schema, timeout=timeout, limit=limit)
+    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
+                                   profile=profile, compact=compact):
         print_sudoku_schema(schema)
-    if show_stats:
-        print_solve_stats(sudoku_solver.get_stats())

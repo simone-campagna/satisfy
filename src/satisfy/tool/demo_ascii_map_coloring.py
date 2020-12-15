@@ -1,8 +1,7 @@
 from .ascii_map_coloring import AsciiMapColoringSolver
 
 from .demo_utils import (
-    print_model,
-    print_solve_stats,
+    iter_solutions,
 )
 
 __all__ = [
@@ -50,7 +49,7 @@ def default_ascii_map_coloring_source():
     return DEFAULT_ASCII_MAP_COLORING_SOURCE
 
 
-def ascii_map_coloring(input_file, colors, timeout, limit, show_model, show_stats):
+def ascii_map_coloring(input_file, colors, timeout, limit, show_model, show_stats, profile, compact):
     if input_file is None:
         source = default_ascii_map_coloring_source()
         print("""\
@@ -62,14 +61,7 @@ No input file - using default data:
         with open(input_file, "r") as fh:
             data = fh.read()
 
-    ascii_map_coloring_solver = AsciiMapColoringSolver(data, colors, timeout=timeout, limit=limit)
-    if show_model:
-        print_model(ascii_map_coloring_solver.model)
-
-    num_solutions = 0
-    for ascii_map in ascii_map_coloring_solver:
-        num_solutions += 1
-        print("\n=== solution {} ===".format(num_solutions))
-        print('\n'.join(''.join(row) for row in ascii_map))
-    if show_stats:
-        print_solve_stats(ascii_map_coloring_solver.get_stats())
+    model_solver = AsciiMapColoringSolver(data, colors, timeout=timeout, limit=limit)
+    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
+                                   profile=profile, compact=compact):
+        print(model_solver.create_ascii_map(solution))

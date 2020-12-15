@@ -1,8 +1,5 @@
 import argparse
-import cProfile
-import io
 import json
-import pstats
 
 import argcomplete
 
@@ -88,7 +85,7 @@ Satisfy tool - show some examples.
 """,
         **common_args)
 
-    solve_args = ["timeout", "limit", "show_model", "show_stats"]
+    solve_args = ["timeout", "limit", "show_model", "show_stats", "profile", "compact"]
 
     subparsers = top_level_parser.add_subparsers()
     top_level_parser.set_defaults(
@@ -306,11 +303,6 @@ Solve the 4-rings problem:
         action='store_false',
         help='allows not unique variable values',
         **fr_unique_kwargs)
-    four_rings_parser.add_argument(
-        '-c', '--compact',
-        default=False,
-        action='store_true',
-        help='compact output')
 
     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
                      graph_labeling_parser, ascii_map_coloring_parser,
@@ -341,11 +333,13 @@ Solve the 4-rings problem:
         default_show_model = False
         show_model_group.add_argument(
             "-m", "--show-model",
+            dest='show_model',
             default=default_show_model,
             action="store_true",
             help="show model variables and constraints" + _default(default_show_model))
         show_model_group.add_argument(
             "-M", "--no-show-model",
+            dest='show_model',
             default=default_show_model,
             action="store_false",
             help="show model variables and constraints" + _default(not default_show_model))
@@ -354,19 +348,42 @@ Solve the 4-rings problem:
         default_show_stats = True
         show_stats_group.add_argument(
             "-s", "--show-stats",
+            dest='show_stats',
             default=default_show_stats,
             action="store_true",
             help="show solver statistics" + _default(default_show_stats))
         show_stats_group.add_argument(
             "-S", "--no-show-stats",
+            dest='show_stats',
             default=default_show_stats,
             action="store_false",
             help="show solver statistics" + _default(not default_show_stats))
 
-        parser.add_argument(
+        profile_group = parser.add_mutually_exclusive_group()
+        profile_group.add_argument(
             "-p", "--profile",
+            dest='profile',
             action="store_true", default=False,
             help="enable profiling")
+        profile_group.add_argument(
+            "-P", "--no-profile",
+            dest='profile',
+            action="store_false", default=False,
+            help="disable profiling")
+
+        compact_group = parser.add_mutually_exclusive_group()
+        compact_group.add_argument(
+            '-c', '--compact',
+            dest='compact',
+            default=False,
+            action='store_true',
+            help='compact output')
+        compact_group.add_argument(
+            '-f', '--formatted',
+            dest='compact',
+            default=False,
+            action='store_false',
+            help='formatted output')
 
     argcomplete.autocomplete(top_level_parser)
     namespace = top_level_parser.parse_args()
@@ -376,15 +393,6 @@ Solve the 4-rings problem:
     kwargs = {
         arg: getattr(namespace, arg) for arg in namespace.function_args
     }
-    if profile:
-        prof = cProfile.Profile()
-        prof.enable()
     function(**kwargs)
-    if profile:
-        prof.disable()
-        s = io.StringIO()
-        ps = pstats.Stats(prof, stream=s).sort_stats('cumulative')
-        ps.print_stats()
-        print(s.getvalue())
     return
 

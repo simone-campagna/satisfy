@@ -1,3 +1,8 @@
+import cProfile
+import contextlib
+import io
+import pstats
+
 __all__ = [
     'print_model',
     'print_solve_stats',
@@ -46,3 +51,54 @@ def print_optimization_stats(stats, optimal=None):
     if stats.interrupt:
         fmt += " [{s.interrupt} reached]"
     print("\n" + fmt.format(suffix=suffix, kind=kind, s=stats))
+
+
+@contextlib.contextmanager
+def profiling(enabled=True):
+    if enabled:
+        prof = cProfile.Profile()
+        prof.enable()
+    try:
+        yield
+    finally:
+        if enabled:
+            prof.disable()
+            s = io.StringIO()
+            ps = pstats.Stats(prof, stream=s).sort_stats('cumulative')
+            ps.print_stats()
+            print(s.getvalue())
+
+
+def iter_solutions(model_solver, profile=False, show_stats=False, show_model=False, compact=False):
+    if show_model:
+        print_model(model_solver.model)
+
+    with profiling(profile):
+        num_solutions = 0
+        for solution in model_solver:
+            num_solutions += 1
+            print("\n=== solution {} ===".format(num_solutions))
+            if compact:
+                print(solution)
+            else:
+                yield solution
+        if show_stats:
+            print_solve_stats(model_solver.get_stats())
+
+
+def optimize(optimizer, profile=False, show_stats=False, show_model=False, compact=False):
+    if show_model:
+        print_model(optimizer.model)
+
+    with profiling(profile):
+        result = optimizer()
+
+        print("=== optimal_solution ===")
+        if compact:
+            print(result)
+        else:
+            yield result
+
+        if show_stats:
+            print_optimization_stats(optimizer.get_stats(), optimal=result.is_optimal)
+

@@ -36,13 +36,10 @@ class QueensSolver(ModelSolver):
         self._board_size = board_size
         self._queens = queens
 
-    def __iter__(self):
+    def create_board(self, solution):
         board_size = self._board_size
-        model = self._model
-        solver = self._solver
         queens = self._queens
-        for solution in solver.solve(model):
-            board = [[0 for _ in range(board_size)] for _ in range(board_size)]
-            for r, queen in enumerate(queens):
-                board[r][solution[queen.name]] = 1
-            yield tuple(board)
+        board = [[0 for _ in range(board_size)] for _ in range(board_size)]
+        for r, queen in enumerate(queens):
+            board[r][solution[queen.name]] = 1
+        return board

@@ -3,9 +3,7 @@ import json
 from ..knapsack import KnapsackOptimizer
 
 from .demo_utils import (
-    print_model,
-    print_model,
-    print_optimization_stats,
+    optimize,
 )
 
 __all__ = [
@@ -43,7 +41,7 @@ def default_knapsack_source():
     return DEFAULT_KNAPSACK_SOURCE
 
 
-def knapsack(input_file, timeout, limit, show_model, show_stats):
+def knapsack(input_file, timeout, limit, show_model, show_stats, profile, compact):
     if input_file is None:
         source = default_knapsack_source()
         print("""\
@@ -67,20 +65,13 @@ No input file - using default data:
                 selected.append("_")
         return " ".join(selected)
 
-    knapsack_optimizer = KnapsackOptimizer(values, capacities, weights, timeout=timeout, limit=limit)
-    if show_model:
-        print_model(knapsack_optimizer.model)
-
-    knapsack_result = knapsack_optimizer()
-
-    print("=== optimal_solution ===")
-    print("is_optimal:", knapsack_result.is_optimal)
-    if knapsack_result.solution is None:
-        print("no solution found")
-    else:
-        print("solution:", repr(solution_string(knapsack_result.solution)))
-        print("value:", knapsack_result.value)
-        print("weights:", knapsack_result.weights)
-
-    if show_stats:
-        print_optimization_stats(knapsack_optimizer.get_stats(), optimal=knapsack_result.is_optimal)
+    model_optimizer = KnapsackOptimizer(values, capacities, weights, timeout=timeout, limit=limit)
+    for result in optimize(model_optimizer, show_model=show_model, show_stats=show_stats,
+                           profile=profile, compact=compact):
+        print("is_optimal:", result.is_optimal)
+        if result.solution is None:
+            print("no solution found")
+        else:
+            print("solution:", repr(solution_string(result.solution)))
+            print("value:", result.value)
+            print("weights:", result.weights)

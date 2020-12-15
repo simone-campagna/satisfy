@@ -24,11 +24,10 @@ class GraphLabelingSolver(ModelSolver):
             model.add_constraint(variables[node0] != variables[node1])
         self._variables = variables
 
-    def __iter__(self):
+    def create_node_labels(self, solution):
         variables = self._variables
         labels = self._labels
-        for solution in self._solver.solve(self._model):
-            node_labels = {}
-            for node, variable in variables.items():
-                node_labels[node] = labels[solution[variable.name]]
-            yield node_labels
+        node_labels = {}
+        for node, variable in variables.items():
+            node_labels[node] = labels[solution[variable.name]]
+        return  node_labels

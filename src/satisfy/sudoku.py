@@ -88,18 +88,14 @@ class SudokuSolver(ModelSolver):
         self._matrix = matrix
         self._schema = schema
 
-    def __iter__(self):
-        model = self._model
-        solver = self._solver
+    def create_schema(self, solution):
         matrix = self._matrix
-        schema = self._schema
-        for solution in solver.solve(model):
-            solved_schema = []
-            for matrix_row, row in zip(matrix, schema):
-                solved_schema_row = []
-                for cell, value in zip(matrix_row, row):
-                    if cell.variables:
-                        value = solution[cell.variables[0].name]
-                    solved_schema_row.append(value)
-                solved_schema.append(tuple(solved_schema_row))
-            yield tuple(solved_schema)
+        schema = []
+        for matrix_row, row in zip(matrix, schema):
+            schema_row = []
+            for cell, value in zip(matrix_row, row):
+                if cell.variables:
+                    value = solution[cell.variables[0].name]
+                schema_row.append(value)
+            schema.append(tuple(schema_row))
+        return schema

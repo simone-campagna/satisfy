@@ -1,6 +1,5 @@
 from .demo_utils import (
-    print_model,
-    print_solve_stats,
+    iter_solutions,
 )
 
 __all__ = [
@@ -35,16 +34,8 @@ def print_queens_board(board_size, board):
     print(bline)
 
 
-def queens(board_size, timeout, limit, show_model, show_stats):
-    num_solutions = 0
-    queens_solver = QueensSolver(board_size, timeout=timeout, limit=limit)
-
-    if show_model:
-        print_model(queens_solver.model)
-
-    for board in queens_solver:
-        num_solutions += 1
-        print("\n=== solution {} ===".format(num_solutions))
-        print_queens_board(board_size, board)
-    if show_stats:
-        print_solve_stats(queens_solver.get_stats())
+def queens(board_size, timeout, limit, show_model, show_stats, profile, compact):
+    model_solver = QueensSolver(board_size, timeout=timeout, limit=limit)
+    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
+                                   profile=profile, compact=compact):
+        print_queens_board(board_size, model_solver.create_board(solution))

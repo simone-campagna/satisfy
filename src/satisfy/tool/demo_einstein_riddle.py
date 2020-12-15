@@ -1,6 +1,5 @@
 from .demo_utils import (
-    print_model,
-    print_solve_stats,
+    iter_solutions,
 )
 
 from .einstein_riddle import EinsteinRiddleSolver
@@ -27,17 +26,10 @@ def print_einstein_riddle_solution(solution):
         print(fmt.format(hordinal=ordinal[hindex], found=found, **var_d))
 
 
-def einstein(timeout, limit, show_model, show_stats):
-    einstein_solver = EinsteinRiddleSolver(timeout=timeout, limit=limit)
-    print(einstein_solver.riddle())
+def einstein(timeout, limit, show_model, show_stats, profile, compact):
+    model_solver = EinsteinRiddleSolver(timeout=timeout, limit=limit)
+    print(model_solver.riddle())
 
-    if show_model:
-        print_model(einstein_solver.model)
-
-    num_solutions = 0
-    for solution in einstein_solver:
-        num_solutions += 1
-        print("\n=== solution {} ===".format(num_solutions))
-        print_einstein_riddle_solution(solution)
-    if show_stats:
-        print_solve_stats(einstein_solver.get_stats())
+    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
+                                   profile=profile, compact=compact):
+        print_einstein_riddle_solution(model_solver.create_riddle_solution(solution))

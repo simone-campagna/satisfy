@@ -116,21 +116,18 @@ class NonogramSolver(ModelSolver):
     def expr(self):
         return self._expr
 
-    def __iter__(self):
-        model = self._model
-        solver = self._solver
+    def create_pixmap(self, solution):
         num_rows, num_cols = self._shape
-        var_infos = self._var_infos
         row_vars = self._row_vars
-        for solution in solver.solve(model):
-            pixmap = [[0 for _ in range(num_cols)] for _ in range(num_rows)]
-            for r, cur_vars in row_vars.items():
-                for var in cur_vars:
-                    start = solution[var.name] 
-                    size = var_infos[var.name].size
-                    for c in range(start, start + size):
-                        pixmap[r][c] = 1
-            yield pixmap
+        var_infos = self._var_infos
+        pixmap = [[0 for _ in range(num_cols)] for _ in range(num_rows)]
+        for r, cur_vars in row_vars.items():
+            for var in cur_vars:
+                start = solution[var.name] 
+                size = var_infos[var.name].size
+                for c in range(start, start + size):
+                    pixmap[r][c] = 1
+        return pixmap
 
 
 def pixmap_shape(pixmap):

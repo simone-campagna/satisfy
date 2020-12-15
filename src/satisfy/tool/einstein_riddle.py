@@ -134,17 +134,14 @@ class EinsteinRiddleSolver(ModelSolver):
         lst.append("(see http://rosettacode.org/wiki/Zebra_puzzle)")
         return '\n'.join(lst)
 
-    def __iter__(self):
-        solver = self._solver
-        model = self._model
+    def create_riddle_solution(self, solution):
+        z_sol = {}
         indices = self._indices
+        for index in indices:
+            z_sol[index] = {}
         variables = self._variables
-        for solution in solver.solve(model):
-            z_sol = {}
-            for index in indices:
-                z_sol[index] = {}
-            for var_name, var_d in variables:
-                for var_value, var in var_d.items():
-                    house_index = solution[var.name]
-                    z_sol[house_index][var_name] = var_value
-            yield z_sol
+        for var_name, var_d in variables:
+            for var_value, var in var_d.items():
+                house_index = solution[var.name]
+                z_sol[house_index][var_name] = var_value
+        yield z_sol

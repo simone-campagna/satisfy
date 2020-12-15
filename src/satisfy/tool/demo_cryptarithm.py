@@ -1,6 +1,5 @@
 from .demo_utils import (
-    print_model,
-    print_solve_stats,
+    iter_solutions,
 )
 
 from ..cryptarithm import CryptarithmSolver
@@ -41,21 +40,13 @@ def print_cryptarithm_solution(solution, system):
     print_cryptarithm_system(subst_system, header='===> ')
     
 
-def cryptarithm(system, avoid_leading_zeros, timeout, limit, show_model, show_stats):
+def cryptarithm(system, avoid_leading_zeros, timeout, limit, show_model, show_stats, profile, compact):
     if not system:
         system = default_cryptarithm_system()
         print("No input source - using default cryptarithm example:")
     print_cryptarithm_system(system)
 
-    cryptarithm_solver = CryptarithmSolver(system, avoid_leading_zeros=avoid_leading_zeros, timeout=timeout, limit=limit)
-
-    if show_model:
-        print_model(cryptarithm_solver.model)
-
-    num_solutions = 0
-    for solution in cryptarithm_solver:
-        num_solutions += 1
-        print("\n=== solution {} ===".format(num_solutions))
+    model_solver = CryptarithmSolver(system, avoid_leading_zeros=avoid_leading_zeros, timeout=timeout, limit=limit)
+    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
+                                   profile=profile, compact=compact):
         print_cryptarithm_solution(solution, system)
-    if show_stats:
-        print_solve_stats(cryptarithm_solver.get_stats())

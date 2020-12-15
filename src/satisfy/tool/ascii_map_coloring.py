@@ -90,17 +90,17 @@ class AsciiMapColoringSolver(GraphLabelingSolver):
     def ascii_map(self):
         return self._ascii_map
 
-    def __iter__(self):
+    def create_ascii_map(self, solution):
         orig_ascii_map = self._ascii_map
         groups = self._groups
         colors = self._labels
         glabels = list('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-        for solution in super().__iter__():
-            ascii_map = [[' ' for _ in row] for row in orig_ascii_map]
-            for gid, positions in enumerate(groups):
-                color = solution[gid]
-                value = termcolor.colored(str(glabels[gid % len(glabels)]), color)
-                for r, c in positions:
-                    ascii_map[r][c] = value
-            yield ascii_map
+        ascii_map = [[' ' for _ in row] for row in orig_ascii_map]
+        node_labels = self.create_node_labels(solution)
+        for gid, positions in enumerate(groups):
+            color = node_labels[gid]
+            value = termcolor.colored(str(glabels[gid % len(glabels)]), color)
+            for r, c in positions:
+                ascii_map[r][c] = value
+        return '\n'.join(''.join(row) for row in ascii_map)
 
