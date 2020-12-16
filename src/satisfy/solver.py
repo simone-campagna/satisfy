@@ -401,32 +401,20 @@ class Solver(object):
             elif not reduced_domain:
                 reduced_domains.pop(var_name)
                 stack.pop(-1)
-                # print("@-2", var_name)
-                #print("B")
                 continue
-            # REM print("   ", var_name, unbound_var_names, reduced_domain)
-
-            #print("{} -> {}".format(var_name, reduced_domain))
-            #input("...")
             # select value:
             value, reduced_domain = select_value(var_name, substitution, reduced_domain)
-            # print("@-3", var_name, value)
             substitution[var_name] = value
             if unbound_var_names:
-                # REM print("...", var_name, unbound_var_names, substitution)
                 unbound_var_names = list(unbound_var_names)
                 next_var_name, next_unbound_var_names = select_var(bound_var_names, unbound_var_names, model_info)
                 stack.append((bound_var_names + [next_var_name], next_unbound_var_names, substitution))
             else:
                 timer.stop()
-                # for constraint in model.constraints():
-                #     print(constraint.evaluate(substitution), constraint)
                 num_solutions += 1
-                # REM print(":::", var_name, unbound_var_names, substitution)
-                # print("@-4", substitution)
                 for constraint in model.constraints():
                     if constraint.unsatisfied(substitution):
-                        print("!!!", constraint)
+                        raise RuntimeError("constraint {} is not satisfied".format(constraint))
                 yield substitution
                 if limit is not None and num_solutions >= limit:
                     timer.abort()
