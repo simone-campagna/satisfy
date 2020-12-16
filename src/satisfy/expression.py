@@ -74,13 +74,7 @@ class Expression(abc.ABC):
 
     def compile_py_function(self):
         py_source = self.py_source()
-        #print(py_source)
-        #input("...")
         return eval(py_source, EXPRESSION_GLOBALS)
-        # def ff(substitution):
-        #     print("///", sorted(substitution.items(), key=lambda x: x[0]))
-        #     return fn(**substitution)
-        # return ff
 
     def as_function(self):
         try:

@@ -349,55 +349,50 @@ class Solver(object):
 
             bound_var_names, unbound_var_names, substitution = stack[-1]
             var_name = bound_var_names[-1]
-            # print("@-0", var_name)
-            #print(var_name, unbound_var_names, substitution)
             substitution = substitution.copy()
             reduced_domain = reduced_domains.get(var_name, None)
             if reduced_domain is None:
                 bound_var_set = set(bound_var_names)
-                if True:
-                    forbidden_values = {value for vname, value in substitution.items() if vname in var_ad[var_name]}
-                else:
-                    forbidden_values = {substitution[vname] for vname in var_ad[var_name].intersection(substitution)}
+                forbidden_values = {value for vname, value in substitution.items() if vname in var_ad[var_name]}
 
-                if True:
-                    reduced_domain = set(initial_domains[var_name]).difference(forbidden_values)
-                    for constraint in var_constraints[var_name]:
-                        if constraint.vars() <= bound_var_set:
-                            c_fun = constraint.evaluate
-                            nr_dom = set()
-                            for value in reduced_domain:
-                                substitution[var_name] = value
-                                if c_fun(substitution):
-                                    nr_dom.add(value)
-                            reduced_domain = nr_dom
-                            if not reduced_domain:
-                                break
-                    if reduced_domain:
-                        reduced_domains[var_name] = reduced_domain
-                    else:
-                        stack.pop(-1)
-                        continue
+                reduced_domain = set(initial_domains[var_name]).difference(forbidden_values)
+                # if 0 and True:
+                #     c_functions = []
+                #     for constraint in var_constraints[var_name]:
+                #         if constraint.vars() <= bound_var_set:
+                #             c_functions.append(constraint.evaluate)
+                #     #print("***", var_name, len(var_constraints[var_name]), len(c_functions))
+                #     if c_functions:
+                #         nr_dom = set()
+                #         for value in reduced_domain:
+                #             substitution[var_name] = value
+                #             # print(var_name, value, substitution)
+                #             # for ccc in c_functions:
+                #             #     print("   +", ccc, ccc.evaluate(substitution))
+                #             for c_fun in c_functions:
+                #                 if not c_fun(substitution):
+                #                     break
+                #             else:
+                #                 nr_dom.add(value)
+                #         # input("///")
+                #         reduced_domain = nr_dom
+                # else:
+                for constraint in var_constraints[var_name]:
+                    if constraint.vars() <= bound_var_set:
+                        c_fun = constraint.evaluate
+                        nr_dom = set()
+                        for value in reduced_domain:
+                            substitution[var_name] = value
+                            if c_fun(substitution):
+                                nr_dom.add(value)
+                        reduced_domain = nr_dom
+                        if not reduced_domain:
+                            break
+                if reduced_domain:
+                    reduced_domains[var_name] = reduced_domain
                 else:
-                    reduced_domain = set()
-                    use_constraints = set()
-                    for constraint in var_constraints[var_name]:
-                        if constraint.vars() <= bound_var_set:
-                            use_constraints.add(constraint)
-                    for value in initial_domains[var_name]:
-                        if value in forbidden_values:
-                            continue
-                        substitution[var_name] = value
-                        for constraint in use_constraints:
-                            if not constraint.evaluate(substitution):
-                                break
-                        else:
-                            reduced_domain.add(value)
-                    if reduced_domain:
-                        reduced_domains[var_name] = reduced_domain
-                    else:
-                        stack.pop(-1)
-                        continue
+                    stack.pop(-1)
+                    continue
             elif not reduced_domain:
                 reduced_domains.pop(var_name)
                 stack.pop(-1)
