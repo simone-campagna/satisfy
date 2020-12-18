@@ -17,6 +17,8 @@ from .expression import (
     Variable,
     Parameter,
 )
+from .objective import Objective
+
 
 __all__ = [
     'Model',
@@ -37,6 +39,17 @@ class Model(object):
         self._constraints = []
         self._variables_proxy = types.MappingProxyType(self._variables)
         self.__solvable = True
+        self.__objectives = []
+
+    def has_objectives(self):
+        return bool(self.__objectives)
+
+    def objectives(self):
+        yield from self.__objectives
+
+    def objective_functions(self):
+        for objective in self.__objectives:
+            yield objective.build(self)
 
     def solvable(self):
         return self.__solvable
@@ -125,6 +138,11 @@ class Model(object):
 
     def add_all_different_constraint(self, variables):
         self.add_constraint(AllDifferentConstraint([var.name for var in variables]))
+
+    def add_objective(self, objective):
+        if not isinstance(objective, Objective):
+            raise TypeError(objective)
+        self.__objectives.append(objective)
 
     def get_var_domain(self, var):
         if isinstance(var, Variable):

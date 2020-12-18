@@ -2,10 +2,10 @@ import collections
 
 from .model import Model
 from .objective import Maximize
-from .solver import ModelOptimizer, SelectVar, SelectValue
+from .solver import ModelSolver, SelectVar, SelectValue
 
 __all__ = [
-    'KnapsackOptimizer',
+    'KnapsackSolver',
 ]
 
 
@@ -14,7 +14,7 @@ KnapsackSolution = collections.namedtuple(
     "is_optimal solution value weights")
 
 
-class KnapsackOptimizer(ModelOptimizer):
+class KnapsackSolver(ModelSolver):
     def __init__(self, values, capacities, weights, **args):
         if args.get('select_var', None) is None:
             args['select_var'] = SelectVar.group_prio
@@ -49,21 +49,20 @@ class KnapsackOptimizer(ModelOptimizer):
         constraints = []
         for idx, capacity in enumerate(capacities):
             constraint = model.add_constraint(sum(var * weight[idx] for var, weight in zip(variables, weights)) <= capacity)
+        model.add_objective(Maximize(sum(var * value for var, value in zip(variables, values))))
         self._values = values
         self._capacities = capacities
         self._weights = weights
         self._variables = variables
         self._model = model
 
-    def __call__(self):
+    def make_knapsack_solution(self, opt_result):
         values = self._values
         capacities = self._capacities
         weights = self._weights
         variables = self._variables
         model = self._model
         solver = self._solver
-        objective = Maximize(sum(var * value for var, value in zip(variables, values)))
-        opt_result = solver.optimal_solution(model, objective)
         opt_solution = opt_result.solution
         if opt_solution is not None:
             solution = tuple(opt_solution[var.name] for var in variables)

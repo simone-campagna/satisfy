@@ -1,9 +1,9 @@
 import json
 
-from ..knapsack import KnapsackOptimizer
+from ..knapsack import KnapsackSolver
 
 from .demo_utils import (
-    optimize,
+    iter_solutions,
 )
 
 __all__ = [
@@ -65,13 +65,14 @@ No input file - using default data:
                 selected.append("_")
         return " ".join(selected)
 
-    model_optimizer = KnapsackOptimizer(values, capacities, weights, timeout=timeout, limit=limit)
-    for result in optimize(model_optimizer, show_model=show_model, show_stats=show_stats,
-                           profile=profile, compact=compact):
+    model_solver = KnapsackSolver(values, capacities, weights, timeout=timeout, limit=limit)
+    for result in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
+                                 profile=profile, compact=compact):
         print("is_optimal:", result.is_optimal)
         if result.solution is None:
             print("no solution found")
         else:
-            print("solution:", repr(solution_string(result.solution)))
-            print("value:", result.value)
-            print("weights:", result.weights)
+            knapsack_solution = model_solver.make_knapsack_solution(result)
+            print("solution:", repr(solution_string(knapsack_solution.solution)))
+            print("value:", knapsack_solution.value)
+            print("weights:", knapsack_solution.weights)

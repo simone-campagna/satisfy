@@ -5,26 +5,46 @@ from .constraint import ExpressionConstraint
 from .expression import Expression
 
 __all__ = [
+    'ObjectiveFunction',
     'Objective',
     'Maximize',
     'Minimize',
 ]
 
 
-class Objective(abc.ABC):
-    @abc.abstractmethod
-    def make_constraint(self, model):
-        raise NotImplementedError()
+class ObjectiveFunction:
+    def __init__(self, model, expression, *constraints):
+        self._model = model
+        self._expression = expression
+        self._constraints = constraints
 
-    @abc.abstractmethod
-    def add_solution(self, substitution):
-        raise NotImplementedError()
+    def add_solution(self, solution):
+        pass
 
-    def evaluate(self, substitution):
+    @property
+    def constraints(self):
+        return self._constraints
+
+    def __call__(self, substitution):
         return self._expression.evaluate(substitution)
 
     def __repr__(self):
         return "{}({!r})".format(type(self).__name__, self._expression)
+
+
+class Objective(abc.ABC):
+    def __init__(self, expression):
+        if not isinstance(expression, Expression):
+            raise TypeError("{} is not an Expression".format(expression))
+        self._expression = expression
+
+    @property
+    def expression(self):
+        return self._expression
+
+    @abc.abstractmethod
+    def build(self, model):
+        raise NotImplementedError()
 
 
 class MinMaxConstraint(ExpressionConstraint):
@@ -51,23 +71,22 @@ class MaxConstraint(MinMaxConstraint):
         super().__init__(model, expression, op=operator.gt)
 
 
-class MinMax(Objective):
-    def __init__(self, expression):
-        if not isinstance(expression, Expression):
-            raise TypeError("{} is not an Expression".format(expression))
-        self._expression = expression
-        super().__init__()
-
-    def add_solution(self, constraint, substitution):
-        value =  self._expression.evaluate(substitution)
-        constraint.set_bound(value)
+class MinMaxObjectiveFunction(ObjectiveFunction):
+    def add_solution(self, solution):
+        value = self(solution)
+        for constraint in self._constraints:
+            constraint.set_bound(value)
 
 
-class Minimize(MinMax):
-    def make_constraint(self, model):
-        return MinConstraint(model, self._expression)
+class Minimize(Objective):
+    def build(self, model):
+        return MinMaxObjectiveFunction(
+            model, self._expression,
+            MinConstraint(model, self._expression))
 
 
-class Maximize(MinMax):
-    def make_constraint(self, model):
-        return MaxConstraint(model, self._expression)
+class Maximize(Objective):
+    def build(self, model):
+        return MinMaxObjectiveFunction(
+            model, self._expression,
+            MaxConstraint(model, self._expression))

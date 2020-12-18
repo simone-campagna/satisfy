@@ -25,8 +25,6 @@ def prod(values, start=1):
 EXPRESSION_GLOBALS = {
     'sum': sum,
     'prod': prod,
-    'min': min,
-    'max': max,
 }
 
 

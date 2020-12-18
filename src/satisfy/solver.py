@@ -4,6 +4,7 @@ import itertools
 import random
 
 from .constraint import AllDifferentConstraint
+from .expression import expression_globals
 from .model import Model
 from .objective import Objective
 from .utils import INFINITY, Timer, SolveStats
@@ -11,7 +12,7 @@ from .utils import INFINITY, Timer, SolveStats
 
 __all__ = [
     'ModelInfo',
-    'OptimalSolution',
+    'OptimizationResult',
     'SelectVar',
     'SelectValue',
     'Solver',
@@ -41,8 +42,8 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
 )
 
 
-OptimalSolution = collections.namedtuple(  # pylint: disable=invalid-name
-    "OptimalSolution",
+OptimizationResult = collections.namedtuple(  # pylint: disable=invalid-name
+    "OptimizationResult",
     "is_optimal solution")
 
 
@@ -61,11 +62,6 @@ class SelectVar:
     @classmethod
     def _sort_bound(cls, bound_var_names, unbound_var_names, model_info, minmax):
         var_map = model_info.var_map
-        for var_name in unbound_var_names:
-            if bound_var_names:
-                other_var_names = bound_var_names
-            else:
-                other_var_names = filter(lambda v: v != var_name, model_info.var_names)
         unbound_var_names.sort(key=lambda v: minmax(var_map[v].values()))
     
     @classmethod
@@ -105,6 +101,24 @@ class SelectVar:
         return var_name, unbound_var_names
     
     @classmethod
+    def min_domain_depth(cls, depth):
+        def min_domain(bound_var_names, unbound_var_names, model_info):
+            if len(bound_var_names) <= depth:
+                cls._sort_domain(bound_var_names, unbound_var_names, model_info)
+            var_name = unbound_var_names.pop(0)
+            return var_name, unbound_var_names
+        return min_domain
+            
+    @classmethod
+    def max_domain_depth(cls, depth):
+        def max_domain(bound_var_names, unbound_var_names, model_info):
+            if len(bound_var_names) <= depth:
+                cls._sort_domain(bound_var_names, unbound_var_names, model_info)
+            var_name = unbound_var_names.pop(-1)
+            return var_name, unbound_var_names
+        return max_domain
+            
+    @classmethod
     def group_prio(cls, bound_var_names, unbound_var_names, model_info):
         if not bound_var_names:
             var_group_prio = model_info.var_group_prio
@@ -143,6 +157,9 @@ class Solver(object):
                  limit=None,
                  reduce_max_depth=1,
                  compile_constraints=True):
+        self._c_globals = expression_globals().copy()
+        self.add_function(min)
+        self.add_function(max)
         self._select_var = None
         self.select_var = select_var
         self._select_value = None
@@ -157,7 +174,12 @@ class Solver(object):
         self.reduce_max_depth = reduce_max_depth
         self._timer = None
         self._interrupt = None
-        self._reset()
+        self._solution = None
+
+    def add_function(self, function, name=None):
+        if name is None:
+            name = function.__name__
+        self._c_globals[name] = function
 
     @property
     def select_var(self):
@@ -237,6 +259,9 @@ class Solver(object):
         var_groups = collections.defaultdict(list)
         solvable = True
         for constraint in itertools.chain(model.constraints(), _additional_constraints):
+            #print(self._c_globals)
+            #input("...")
+            constraint.globals = self._c_globals
             if compile_constraints:
                 constraint.compile()
             c_vars = set(filter(lambda v: v in var_names_set, constraint.vars()))
@@ -307,14 +332,28 @@ class Solver(object):
             extra={}
         )
 
-    def solve(self, model, *, _additional_constraints=(), **args):
+    def optimize(self, model, objective_functions, **args):
+        for _ in self.solve(model, objective_functions=objective_functions, **args):
+            pass
+        return self.get_optimization_result()
+
+    def solve(self, model, *, objective_functions=None, **args):
         select_var = args.get('select_var', self._select_var)
         select_value = args.get('select_value', self._select_value)
         timeout = args.get('timeout', self._timeout)
         limit = args.get('limit', self._limit)
 
+        if objective_functions is None:
+            objective_functions = []
+        else:
+            objective_functions = list(objective_functions)
+        additional_constraints = []
+        for objective_function in objective_functions:
+            objective_constraints = list(objective_function.constraints)
+            additional_constraints.extend(objective_constraints)
+
         # 1. make model_info:
-        model_info = self.make_model_info(model, _additional_constraints=_additional_constraints, **args)
+        model_info = self.make_model_info(model, _additional_constraints=additional_constraints, **args)
 
         if not (model_info.solvable and model_info.var_names):
             return
@@ -335,8 +374,9 @@ class Solver(object):
             # for v in [var_name] + unbound_var_names:
             #     print("{:16s} {:4d} {:4d} {:4d}".format(v, len(o[v]), len(i[v]), sum(m[v].values())))
             # input("===!!!===")
-            stack.append(([var_name], unbound_var_names, {}))
+            stack.append((var_name, {var_name}, unbound_var_names, {}))
 
+        self._reset()
         timer = self._timer
         timer.start()
         num_solutions = 0
@@ -347,38 +387,17 @@ class Solver(object):
                     self._interrupt = "timeout"
                     return
 
-            bound_var_names, unbound_var_names, substitution = stack[-1]
-            var_name = bound_var_names[-1]
+            var_name, bound_var_names, unbound_var_names, substitution = stack[-1]
+            # var_name = bound_var_names[-1]
             substitution = substitution.copy()
             reduced_domain = reduced_domains.get(var_name, None)
             if reduced_domain is None:
-                bound_var_set = set(bound_var_names)
+                # bound_var_set = set(bound_var_names)
                 forbidden_values = {value for vname, value in substitution.items() if vname in var_ad[var_name]}
 
                 reduced_domain = set(initial_domains[var_name]).difference(forbidden_values)
-                # if 0 and True:
-                #     c_functions = []
-                #     for constraint in var_constraints[var_name]:
-                #         if constraint.vars() <= bound_var_set:
-                #             c_functions.append(constraint.evaluate)
-                #     #print("***", var_name, len(var_constraints[var_name]), len(c_functions))
-                #     if c_functions:
-                #         nr_dom = set()
-                #         for value in reduced_domain:
-                #             substitution[var_name] = value
-                #             # print(var_name, value, substitution)
-                #             # for ccc in c_functions:
-                #             #     print("   +", ccc, ccc.evaluate(substitution))
-                #             for c_fun in c_functions:
-                #                 if not c_fun(substitution):
-                #                     break
-                #             else:
-                #                 nr_dom.add(value)
-                #         # input("///")
-                #         reduced_domain = nr_dom
-                # else:
                 for constraint in var_constraints[var_name]:
-                    if constraint.vars() <= bound_var_set:
+                    if constraint.vars() <= bound_var_names:
                         c_fun = constraint.evaluate
                         nr_dom = set()
                         for value in reduced_domain:
@@ -403,7 +422,7 @@ class Solver(object):
             if unbound_var_names:
                 unbound_var_names = list(unbound_var_names)
                 next_var_name, next_unbound_var_names = select_var(bound_var_names, unbound_var_names, model_info)
-                stack.append((bound_var_names + [next_var_name], next_unbound_var_names, substitution))
+                stack.append((next_var_name, bound_var_names | {next_var_name}, next_unbound_var_names, substitution))
             else:
                 timer.stop()
                 num_solutions += 1
@@ -411,6 +430,9 @@ class Solver(object):
                     if constraint.unsatisfied(substitution):
                         raise RuntimeError("constraint {} is not satisfied".format(constraint))
                 yield substitution
+                self._solution = substitution
+                for objective_function in objective_functions:
+                    objective_function.add_solution(substitution)
                 if limit is not None and num_solutions >= limit:
                     timer.abort()
                     self._interrupt = "limit"
@@ -419,40 +441,19 @@ class Solver(object):
                 continue
         timer.abort()
 
-    def optimize(self, model, objective, **args):
-        if isinstance(objective, Objective):
-            objectives = (objective,)
-        else:
-            objectives = tuple(objective)
-        objective_constraints = []
-        for objective in objectives:
-            if not isinstance(objective, Objective):
-                raise ValueError("{} is not an Objective".format(objective))
-            objective_constraints.append(objective.make_constraint(model))
-        args['_additional_constraints'] = tuple(args.get('_additional_constraints', ())) + tuple(objective_constraints)
-        for solution in self.solve(model, **args):
-            # print("sol found:", solution)
-            for objective, constraint in zip(objectives, objective_constraints):
-                objective.add_solution(constraint, solution)
-            # print("values:", values)
-            # input("---")
-            yield OptimalSolution(
-                is_optimal=None,
-                solution=solution)
-
-    def optimal_solution(self, model, objective, **args):
-        solution = None
-        for opt_solution in self.optimize(model, objective, **args):
-            solution = opt_solution.solution
+    def get_optimization_result(self):
+        solution = self._solution
         if solution is not None and self._interrupt is None:
             is_optimal = True
         else:
             is_optimal = False
-        return OptimalSolution(
+        return OptimizationResult(
             is_optimal=is_optimal,
             solution=solution)
 
     def get_stats(self):
+        if self._timer is None:
+            return None
         stats = self._timer.stats()
         return SolveStats(
             count=stats.count,
@@ -462,9 +463,10 @@ class Solver(object):
     def _reset(self):
         self._timer = Timer()
         self._interrupt = None
+        self._solution = None
 
 
-class ModelSolverBase(abc.ABC):
+class ModelSolver:
     def __init__(self, *, model=None, solver=None, **args):
         if model is None:
             model = Model()
@@ -472,6 +474,9 @@ class ModelSolverBase(abc.ABC):
         if solver is None:
             solver = Solver(**args)
         self._solver = solver
+
+    def has_objectives(self):
+        return self._model.has_objectives()
 
     @property
     def model(self):
@@ -484,14 +489,15 @@ class ModelSolverBase(abc.ABC):
     def get_stats(self):
         return self._solver.get_stats()
 
-
-class ModelSolver(ModelSolverBase):
     def __iter__(self):
-        yield from self._solver.solve(self._model)
+        yield from self.solve()
 
+    def solve(self, **kwargs):
+        objective_functions = list(self._model.objective_functions())
+        yield from self._solver.solve(self._model, objective_functions=objective_functions, **kwargs)
 
-class ModelOptimizer(ModelSolverBase):
-    @abc.abstractmethod
-    def __call__(self):
-        raise NotImplementedError()
-
+    def optimize(self, **kwargs):
+        if not self.has_objectives():
+            raise RuntimeError("objective function(s) not set")
+        objective_functions = list(self._model.objective_functions())
+        return self._solver.optimize(self._model, objective_functions=objective_functions, **kwargs)

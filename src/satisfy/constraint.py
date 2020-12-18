@@ -16,6 +16,17 @@ __all__ = [
 class Constraint(abc.ABC):
     def __init__(self, var_names):
         self._var_names = frozenset(var_names)
+        self._globals = None
+
+    @property
+    def globals(self):
+        if self._globals is None:
+            return expression_globals()
+        return self._globals
+
+    @globals.setter
+    def globals(self, globals_d):
+        self._globals = globals_d
 
     @abc.abstractmethod
     def evaluate(self, substitution):
@@ -68,8 +79,7 @@ class ExpressionConstraint(Constraint):
 
     def compile_function(self):
         ce = self._expression.compile_py_expr()
-        gd = expression_globals()
-        return  lambda subs: eval(ce, gd, subs)
+        return  lambda subs: eval(ce, self._globals, subs)
 
     def compile(self):
         self._evaluate_function = self.compile_function()
