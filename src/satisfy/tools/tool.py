@@ -16,10 +16,10 @@ from .einstein_riddle import (
 from .demo_einstein_riddle import (
     einstein,
 )
-# from .demo_graph_labeling import (
-#     graph_labeling,
-#     default_graph_labeling_source,
-# )
+from .demo_graph_labeling import (
+    graph_labeling,
+    default_graph_labeling_source,
+)
 from .demo_knapsack import (
     knapsack,
     default_knapsack_source,
@@ -127,22 +127,22 @@ for instance, this is a 2-dimensional knapsack problem with 7 items:
 #         function=sudoku,
 #         function_args=["input_file"] + solve_args)
 # 
-#     graph_labeling_parser = subparsers.add_parser(
-#         "graph-labeling",
-#         description="""\
-# Solve a graph labeling problem.
-# 
-# The input file is a JSON file containing the problem in NetworkX node link format.
-# For instance:
-# 
-# {example}
-# 
-# """.format(example=default_graph_labeling_source()),
-#         **common_args)
-#     graph_labeling_parser.set_defaults(
-#         function=graph_labeling,
-#         function_args=["input_file", "labels"] + solve_args)
-# 
+    graph_labeling_parser = subparsers.add_parser(
+        "graph-labeling",
+        description="""\
+Solve a graph labeling problem.
+
+The input file is a JSON file containing the problem in NetworkX node link format.
+For instance:
+
+{example}
+
+""".format(example=default_graph_labeling_source()),
+        **common_args)
+    graph_labeling_parser.set_defaults(
+        function=graph_labeling,
+        function_args=["input_file", "labels"] + solve_args)
+
 #     ascii_map_coloring_parser = subparsers.add_parser(
 #         "ascii-map-coloring",
 #         description="""\
@@ -187,13 +187,13 @@ For instance:
         default=None,
         type=argparse.FileType('r'),
         help="input image")
-# 
-#     graph_labeling_parser.add_argument(
-#         "-L", "--labels",
-#         nargs='+',
-#         default=['red', 'blue', 'green'],
-#         help="set node labels")
-# 
+
+    graph_labeling_parser.add_argument(
+        "-L", "--labels",
+        nargs='+',
+        default=['red', 'blue', 'green'],
+        help="set node labels")
+
 #     ascii_map_coloring_parser.add_argument(
 #         "-C", "--colors",
 #         nargs='+',
@@ -316,7 +316,7 @@ Solve cryptarithms, for instance:
 #         help='SAT input file (defaults to STDIN)')
 # 
 #     for parser in knapsack_parser, sudoku_parser, graph_labeling_parser, ascii_map_coloring_parser:
-    for parser in [knapsack_parser]:
+    for parser in [knapsack_parser, graph_labeling_parser]:
         parser.add_argument(
             "-i", "--input-file",
             metavar="F",
@@ -327,7 +327,8 @@ Solve cryptarithms, for instance:
 #     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
 #                      graph_labeling_parser, ascii_map_coloring_parser,
 #                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
-    solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser]
+    solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser,
+                     graph_labeling_parser]
 
     for parser in solve_parsers:
         parser.add_argument(

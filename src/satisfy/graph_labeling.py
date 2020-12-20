@@ -1,31 +1,33 @@
 from .model import Model
-from .solver import ModelSolver, SelectVar, SelectValue
+from .solver import Solver, SelectVar, SelectValue
 
 __all__ = [
-    'GraphLabelingSolver',
+    'GraphLabeling',
 ]
 
 
-class GraphLabelingSolver(ModelSolver):
+class GraphLabeling(Model):
     def __init__(self, graph, labels, **args):
-        if args.get('select_var', None) is None:
-            args['select_var'] = SelectVar.in_order
-        if args.get('select_value', None) is None:
-            args['select_value'] = SelectValue.min_value
         super().__init__(**args)
         self._graph = graph
         self._labels = {label_id: label for label_id, label in enumerate(labels)}
         label_ids = tuple(self._labels)
-        model = self._model
         variables = {}
         for node in self._graph.nodes():
-            variables[node] = model.add_int_variable(domain=label_ids, name='n_{}'.format(len(variables)))
+            variables[node] = self.add_int_variable(domain=label_ids, name='n_{}'.format(len(variables)))
         for node0, node1 in self._graph.edges():
-            model.add_constraint(variables[node0] != variables[node1])
-        self._variables = variables
+            self.add_constraint(variables[node0] != variables[node1])
+        self._gl_variables = variables
+
+    def solver(self, **kwargs):
+        return Solver(
+            select_var=kwargs.pop('select_var', SelectVar.in_order),
+            select_value=kwargs.pop('select_value', SelectValue.min_value),
+            **kwargs
+        )
 
     def create_node_labels(self, solution):
-        variables = self._variables
+        variables = self._gl_variables
         labels = self._labels
         node_labels = {}
         for node, variable in variables.items():
