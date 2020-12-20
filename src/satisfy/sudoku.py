@@ -2,7 +2,7 @@ import collections
 import itertools
 
 from .model import Model
-from .solver import ModelSolver, SelectVar, SelectValue
+from .solver import Solver, SelectVar, SelectValue
 
 __all__ = [
     'SudokuSolver',
@@ -14,16 +14,9 @@ Cell = collections.namedtuple(
     "row_index col_index block_index domain variables")
 
 
-class SudokuSolver(ModelSolver):
+class Sudoku(Model):
     def __init__(self, schema, **args):
-        if args.get('limit', None) is None:
-            args['limit'] = 1
-        if args.get('select_var', None) is None:
-            args['select_var'] = SelectVar.group_prio
-        if args.get('select_value', None) is None:
-            args['select_value'] = SelectValue.min_value
         super().__init__(**args)
-        model = self._model
         block_size = 3
         size = block_size ** 2
         indices = list(range(size))
@@ -66,7 +59,7 @@ class SudokuSolver(ModelSolver):
             for cell in matrix_row:
                 value = schema[cell.row_index][cell.col_index]
                 if value in null_values:
-                    variable = model.add_int_variable(domain=cell.domain, name="c_{}_{}".format(cell.row_index, cell.col_index))
+                    variable = self.add_int_variable(domain=cell.domain, name="c_{}_{}".format(cell.row_index, cell.col_index))
                     cell.variables.append(variable)
                     row_variables[cell.row_index].append(variable)
                     col_variables[cell.col_index].append(variable)
@@ -75,23 +68,33 @@ class SudokuSolver(ModelSolver):
         for idx, variables in enumerate(row_variables):
             if len(variables) > 1:
                 # print("r[{}]: {}".format(idx, ', '.join(v.name for v in variables)))
-                model.add_all_different_constraint(variables)
+                self.add_all_different_constraint(variables)
         for idx, variables in enumerate(col_variables):
             if len(variables) > 1:
                 # print("c[{}]: {}".format(idx, ', '.join(v.name for v in variables)))
-                model.add_all_different_constraint(variables)
+                self.add_all_different_constraint(variables)
         for idx, variables in enumerate(block_variables):
             if len(variables) > 1:
                 # print("b[{}]: {}".format(idx, ', '.join(v.name for v in variables)))
-                model.add_all_different_constraint(variables)
+                self.add_all_different_constraint(variables)
 
         self._matrix = matrix
         self._schema = schema
 
+    def solver(self, *, limit=None, **kwargs):
+        if limit is None:
+            limit = 1
+        return Solver(
+            limit=limit,
+            select_var=kwargs.pop('select_var', SelectVar.max_bound),
+            select_value=kwargs.pop('select_value', SelectValue.min_value),
+            **kwargs
+        )
+
     def create_schema(self, solution):
         matrix = self._matrix
         schema = []
-        for matrix_row, row in zip(matrix, schema):
+        for matrix_row, row in zip(matrix, self._schema):
             schema_row = []
             for cell, value in zip(matrix_row, row):
                 if cell.variables:

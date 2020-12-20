@@ -40,10 +40,7 @@ def queens(board_size, timeout, limit, show_model, show_stats, profile, compact)
     model = Queens(board_size)
 
     def render_queens(solution):
-        out = render_queens_board(board_size, model.create_board(solution))
-        if compact:
-            out = '\n' + out
-        return out
+        return render_queens_board(board_size, model.create_board(solution))
 
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,

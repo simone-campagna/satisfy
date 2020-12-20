@@ -49,7 +49,10 @@ def render_solution(solution):
 
 def print_solution(solution, stats, renderer=render_solution, compact=False):
     if compact:
-        print("{:8d}) {}".format(stats.count, renderer(solution)))
+        prefix = '{:8d}) '.format(stats.count)
+        for line in renderer(solution).split('\n'):
+            print(prefix + line)
+            prefix = ' ' * len(prefix)
     else:
         print("=== solution {} ===".format(stats.count))
         print(renderer(solution))

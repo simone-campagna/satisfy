@@ -64,10 +64,7 @@ No input file - using default data:
     model = AsciiMapColoring(data, colors)
 
     def render_map(solution):
-        out = model.create_ascii_map(solution)
-        if compact:
-            out = '\n' + out
-        return out
+        return model.create_ascii_map(solution)
 
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,

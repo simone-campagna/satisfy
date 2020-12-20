@@ -35,10 +35,10 @@ from .demo_nonogram import (
 from .demo_queens import (
     queens,
 )
-# from .demo_sudoku import (
-#     sudoku,
-#     default_sudoku_source,
-# )
+from .demo_sudoku import (
+    sudoku,
+    default_sudoku_source,
+)
 # from .demo_four_rings import (
 #     four_rings,
 #     four_rings_description,
@@ -111,22 +111,22 @@ for instance, this is a 2-dimensional knapsack problem with 7 items:
         function=knapsack,
         function_args=["input_file"] + solve_args)
 
-#     sudoku_parser = subparsers.add_parser(
-#         "sudoku",
-#         description="""\
-# Solve a sudoku schema.
-# 
-# The input file is a JSON file containing a sudoku schema, where 0 marks
-# an unknown value. For instance:
-# 
-# {example}
-# 
-# """.format(example=default_sudoku_source()),
-#         **common_args)
-#     sudoku_parser.set_defaults(
-#         function=sudoku,
-#         function_args=["input_file"] + solve_args)
-# 
+    sudoku_parser = subparsers.add_parser(
+        "sudoku",
+        description="""\
+Solve a sudoku schema.
+
+The input file is a JSON file containing a sudoku schema, where 0 marks
+an unknown value. For instance:
+
+{example}
+
+""".format(example=default_sudoku_source()),
+        **common_args)
+    sudoku_parser.set_defaults(
+        function=sudoku,
+        function_args=["input_file"] + solve_args)
+
     graph_labeling_parser = subparsers.add_parser(
         "graph-labeling",
         description="""\
@@ -316,7 +316,7 @@ Solve cryptarithms, for instance:
 #         help='SAT input file (defaults to STDIN)')
 # 
 #     for parser in knapsack_parser, sudoku_parser, graph_labeling_parser, ascii_map_coloring_parser:
-    for parser in [knapsack_parser, graph_labeling_parser, ascii_map_coloring_parser]:
+    for parser in [knapsack_parser, graph_labeling_parser, ascii_map_coloring_parser, sudoku_parser]:
         parser.add_argument(
             "-i", "--input-file",
             metavar="F",
@@ -328,7 +328,8 @@ Solve cryptarithms, for instance:
 #                      graph_labeling_parser, ascii_map_coloring_parser,
 #                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
     solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser,
-                     graph_labeling_parser, ascii_map_coloring_parser, queens_parser]
+                     graph_labeling_parser, ascii_map_coloring_parser, queens_parser,
+                     sudoku_parser]
 
     for parser in solve_parsers:
         parser.add_argument(
