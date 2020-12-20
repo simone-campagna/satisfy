@@ -32,9 +32,9 @@ from .demo_nonogram import (
     nonogram,
     default_nonogram_source,
 )
-# from .demo_queens import (
-#     queens,
-# )
+from .demo_queens import (
+    queens,
+)
 # from .demo_sudoku import (
 #     sudoku,
 #     default_sudoku_source,
@@ -200,25 +200,25 @@ For instance:
         default=['red', 'blue', 'green', 'yellow'],
         help="set map colors")
 
-#     queens_parser = subparsers.add_parser(
-#         "queens",
-#         description="""\
-# Solve the N-queens problem: given an NxN chessboard, try to place N non
-# attacking queens.
-# 
-# """,
-#         **common_args)
-#     queens_parser.set_defaults(
-#         function=queens,
-#         function_args=["board_size"] + solve_args)
-# 
-#     queens_parser.add_argument(
-#         "-b", "--board-size",
-#         metavar="S",
-#         default=8,
-#         type=int,
-#         help="board size")
-# 
+    queens_parser = subparsers.add_parser(
+        "queens",
+        description="""\
+Solve the N-queens problem: given an NxN chessboard, try to place N non
+attacking queens.
+
+""",
+        **common_args)
+    queens_parser.set_defaults(
+        function=queens,
+        function_args=["board_size"] + solve_args)
+
+    queens_parser.add_argument(
+        "-b", "--board-size",
+        metavar="S",
+        default=8,
+        type=int,
+        help="board size")
+
     einstein_parser = subparsers.add_parser(
         "einstein-riddle",
         description="""\
@@ -328,7 +328,7 @@ Solve cryptarithms, for instance:
 #                      graph_labeling_parser, ascii_map_coloring_parser,
 #                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
     solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser,
-                     graph_labeling_parser, ascii_map_coloring_parser]
+                     graph_labeling_parser, ascii_map_coloring_parser, queens_parser]
 
     for parser in solve_parsers:
         parser.add_argument(

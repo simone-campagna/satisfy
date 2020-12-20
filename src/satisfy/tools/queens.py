@@ -1,40 +1,43 @@
 import collections
 import itertools
 
-from ..solver import ModelSolver, SelectVar, SelectValue
+from ..model import Model
+from ..solver import Solver, SelectVar, SelectValue
 
 __all__ = [
-    'QueensSolver',
+    'Queens',
 ]
 
 
-class QueensSolver(ModelSolver):
+class Queens(Model):
     def __init__(self, board_size, **args):
-        if args.get('select_var', None) is None:
-            args['select_var'] = SelectVar.group_prio
-        if args.get('select_value', None) is None:
-            args['select_value'] = SelectValue.max_value
         super().__init__(**args)
-        model = self._model
-        queens = [model.add_int_variable(domain=range(board_size), name="q_{}".format(r)) for r in range(board_size)]
+        queens = [self.add_int_variable(domain=range(board_size), name="q_{}".format(r)) for r in range(board_size)]
 
-        model.add_all_different_constraint(queens)
+        self.add_all_different_constraint(queens)
 
         for r in range(board_size):
             diag_ul_br = []
             diag_ur_bl = []
             for c in range(board_size):
-                var = model.add_int_variable(domain=range(2 * board_size + 1), name="diag_ul_br_{}_{}".format(r, c))
+                var = self.add_int_variable(domain=range(2 * board_size + 1), name="diag_ul_br_{}_{}".format(r, c))
                 diag_ul_br.append(var)
-                model.add_constraint(var == queens[c] + c)
-                var = model.add_int_variable(domain=range(-board_size, board_size + 1), name="diag_ur_bl_{}_{}".format(r, c))
+                self.add_constraint(var == queens[c] + c)
+                var = self.add_int_variable(domain=range(-board_size, board_size + 1), name="diag_ur_bl_{}_{}".format(r, c))
                 diag_ur_bl.append(var)
-                model.add_constraint(var == queens[c] - c)
-            model.add_all_different_constraint(diag_ul_br)
-            model.add_all_different_constraint(diag_ur_bl)
+                self.add_constraint(var == queens[c] - c)
+            self.add_all_different_constraint(diag_ul_br)
+            self.add_all_different_constraint(diag_ur_bl)
 
         self._board_size = board_size
         self._queens = queens
+
+    def solver(self, **kwargs):
+        return Solver(
+            select_var=kwargs.pop('select_var', SelectVar.group_prio),
+            select_value=kwargs.pop('select_value', SelectValue.max_value),
+            **kwargs
+        )
 
     def create_board(self, solution):
         board_size = self._board_size
