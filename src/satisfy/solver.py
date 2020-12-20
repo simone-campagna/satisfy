@@ -1,13 +1,14 @@
 import abc
 import collections
+import contextlib
+import enum
 import itertools
 import random
 
 from .constraint import AllDifferentConstraint
 from .expression import expression_globals
-from .model import Model
 from .objective import Objective
-from .utils import INFINITY, Timer, SolveStats
+from .utils import INFINITY, Timer
 
 
 __all__ = [
@@ -16,8 +17,9 @@ __all__ = [
     'SelectVar',
     'SelectValue',
     'Solver',
+    'State',
+    'SolverState',
     'ModelSolver',
-    'ModelOptimizer',
 ]
 
 
@@ -25,6 +27,7 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
     'ModelInfo',
     [
         'solvable',
+        'objective_functions',
         'original_domains',
         'initial_domains',
         'reduced_domains',
@@ -44,7 +47,7 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
 
 OptimizationResult = collections.namedtuple(  # pylint: disable=invalid-name
     "OptimizationResult",
-    "is_optimal solution")
+    "is_optimal state count solution")
 
 
 class SelectVar:
@@ -149,7 +152,7 @@ class SelectValue:
         return value, reduced_domain
 
 
-class Solver(object):
+class Solver:
     def __init__(self,
                  select_var=SelectVar.max_bound,
                  select_value=SelectValue.min_value,
@@ -157,9 +160,6 @@ class Solver(object):
                  limit=None,
                  reduce_max_depth=1,
                  compile_constraints=True):
-        self._c_globals = expression_globals().copy()
-        self.add_function(min)
-        self.add_function(max)
         self._select_var = None
         self.select_var = select_var
         self._select_value = None
@@ -172,34 +172,22 @@ class Solver(object):
         self.compile_constraints = compile_constraints
         self._reduce_max_depth = None
         self.reduce_max_depth = reduce_max_depth
-        self._timer = None
-        self._interrupt = None
-        self._solution = None
-
-    def add_function(self, function, name=None):
-        if name is None:
-            name = function.__name__
-        self._c_globals[name] = function
 
     @property
     def select_var(self):
         return self._select_var
 
     @select_var.setter
-    def select_var(self, value):
-        if False:
-            raise TypeError("{!r} is not a VarSelectionPolicy".format(value))
-        self._select_var = value
+    def select_var(self, function):
+        self._select_var = function
 
     @property
     def select_value(self):
         return self._select_value
 
     @select_value.setter
-    def select_value(self, value):
-        if False:
-            raise TypeError("{!r} is not a VarSelectionPolicy".format(value))
-        self._select_value = value
+    def select_value(self, function):
+        self._select_value = function
 
     @property
     def timeout(self):
@@ -237,9 +225,67 @@ class Solver(object):
     def reduce_max_depth(self, value):
         self._reduce_max_depth = int(value)
 
-    def make_model_info(self, model, *, _additional_constraints=(), **args):
-        compile_constraints = args.get('compile_constraints', self._compile_constraints)
-        reduce_max_depth = args.get('reduce_max_depth', self._reduce_max_depth)
+    @contextlib.contextmanager
+    def __call__(self, model):
+        yield ModelSolver(model, self)
+
+
+class State(enum.Enum):
+    RUNNING = 0
+    DONE = 1
+    INTERRUPT_TIMEOUT = 2
+    INTERRUPT_LIMIT = 3
+
+
+class SolverState:
+    def __init__(self):
+        self._timer = Timer()
+        self._count = 0
+        self._current_solution = None
+        self._state = State.RUNNING
+        self.stats = self._timer.stats
+
+    @property
+    def state(self):
+        return self._state
+
+    @property
+    def timer(self):
+        return self._timer
+
+    @property
+    def solution(self):
+        return self._current_solution
+
+    @property
+    def count(self):
+        return self._count
+
+    @state.setter
+    def state(self, value):
+        if not isinstance(value, State):
+            raise TypeError(value)
+        self._state = value
+
+    def add_solution(self, solution):
+        self._current_solution = solution
+        self._count += 1
+
+
+class ModelSolver:
+    def __init__(self, model, solver):
+        self._model = model
+        self._solver = solver
+        compile_constraints = solver.compile_constraints
+        reduce_max_depth = solver.reduce_max_depth
+        self._state = SolverState()
+
+        # 0. objectives:
+        objective_functions = []
+        additional_constraints = []
+        for objective_function in model.objective_functions():
+            objective_constraints = list(objective_function.constraints)
+            additional_constraints.extend(objective_constraints)
 
         # 1. internal data structures:
         variables = model.variables()
@@ -258,10 +304,9 @@ class Solver(object):
         groups = {}
         var_groups = collections.defaultdict(list)
         solvable = True
-        for constraint in itertools.chain(model.constraints(), _additional_constraints):
-            #print(self._c_globals)
-            #input("...")
-            constraint.globals = self._c_globals
+        m_globals = model.globals
+        for constraint in itertools.chain(model.constraints(), additional_constraints):
+            constraint.globals = m_globals
             if compile_constraints:
                 constraint.compile()
             c_vars = set(filter(lambda v: v in var_names_set, constraint.vars()))
@@ -315,8 +360,9 @@ class Solver(object):
 
         reduced_domains = {}
         domains = collections.ChainMap(reduced_domains, initial_domains)
-        return ModelInfo(
+        self._model_info = ModelInfo(
             solvable=solvable,
+            objective_functions=objective_functions,
             original_domains=original_domains,
             initial_domains=initial_domains,
             reduced_domains=reduced_domains,
@@ -332,30 +378,42 @@ class Solver(object):
             extra={}
         )
 
-    def optimize(self, model, objective_functions, **args):
-        for _ in self.solve(model, objective_functions=objective_functions, **args):
-            pass
-        return self.get_optimization_result()
+    @property
+    def state(self):
+        return self._state
 
-    def solve(self, model, *, objective_functions=None, **args):
-        select_var = args.get('select_var', self._select_var)
-        select_value = args.get('select_value', self._select_value)
-        timeout = args.get('timeout', self._timeout)
-        limit = args.get('limit', self._limit)
+    @property
+    def stats(self):
+        return self._state.stats
 
-        if objective_functions is None:
-            objective_functions = []
-        else:
-            objective_functions = list(objective_functions)
-        additional_constraints = []
-        for objective_function in objective_functions:
-            objective_constraints = list(objective_function.constraints)
-            additional_constraints.extend(objective_constraints)
+    def get_optimization_result(self):
+        if self._model.has_objectives():
+            solution = self._state.solution
+            state = self._state.state
+            if solution is None:
+                is_optimal = False
+            else:
+                is_optimal = state is State.DONE
+            return OptimizationResult(
+                is_optimal=is_optimal,
+                state=state,
+                count=self._state.count,
+                solution=self._state.solution)
 
-        # 1. make model_info:
-        model_info = self.make_model_info(model, _additional_constraints=additional_constraints, **args)
+    def __iter__(self):
+        # 1. set vars:
+        model = self._model
+        solver = self._solver
+        model_info = self._model_info
+        select_var = solver.select_var
+        select_value = solver.select_value
+        timeout = solver.timeout
+        limit = solver.limit
+        state = self._state
+        timer = state.timer
 
         if not (model_info.solvable and model_info.var_names):
+            state.state = State.DONE
             return
 
         var_names = model_info.var_names
@@ -363,6 +421,7 @@ class Solver(object):
         initial_domains = model_info.initial_domains
         var_ad = model_info.var_ad
         var_constraints = model_info.var_constraints
+        objective_functions = model_info.objective_functions
 
         # 2. solve:
         stack = []
@@ -376,15 +435,12 @@ class Solver(object):
             # input("===!!!===")
             stack.append((var_name, {var_name}, unbound_var_names, {}))
 
-        self._reset()
-        timer = self._timer
         timer.start()
-        num_solutions = 0
         while stack:
             if timeout is not None:
                 cur_elapsed = timer.elapsed()
                 if cur_elapsed > timeout:
-                    self._interrupt = "timeout"
+                    state.state = State.INTERRUPT_TIMEOUT
                     return
 
             var_name, bound_var_names, unbound_var_names, substitution = stack[-1]
@@ -425,7 +481,7 @@ class Solver(object):
                 stack.append((next_var_name, bound_var_names | {next_var_name}, next_unbound_var_names, substitution))
             else:
                 timer.stop()
-                num_solutions += 1
+                state.add_solution(substitution)
                 for constraint in model.constraints():
                     if constraint.unsatisfied(substitution):
                         raise RuntimeError("constraint {} is not satisfied".format(constraint))
@@ -433,71 +489,11 @@ class Solver(object):
                 self._solution = substitution
                 for objective_function in objective_functions:
                     objective_function.add_solution(substitution)
-                if limit is not None and num_solutions >= limit:
+                if limit is not None and state.count >= limit:
                     timer.abort()
-                    self._interrupt = "limit"
+                    state.state = State.INTERRUPT_LIMIT
                     return
                 timer.start()
                 continue
+        state.state = State.DONE
         timer.abort()
-
-    def get_optimization_result(self):
-        solution = self._solution
-        if solution is not None and self._interrupt is None:
-            is_optimal = True
-        else:
-            is_optimal = False
-        return OptimizationResult(
-            is_optimal=is_optimal,
-            solution=solution)
-
-    def get_stats(self):
-        if self._timer is None:
-            return None
-        stats = self._timer.stats()
-        return SolveStats(
-            count=stats.count,
-            elapsed=stats.elapsed,
-            interrupt=self._interrupt)
-
-    def _reset(self):
-        self._timer = Timer()
-        self._interrupt = None
-        self._solution = None
-
-
-class ModelSolver:
-    def __init__(self, *, model=None, solver=None, **args):
-        if model is None:
-            model = Model()
-        self._model = model
-        if solver is None:
-            solver = Solver(**args)
-        self._solver = solver
-
-    def has_objectives(self):
-        return self._model.has_objectives()
-
-    @property
-    def model(self):
-        return self._model
-
-    @property
-    def solver(self):
-        return self._solver
-
-    def get_stats(self):
-        return self._solver.get_stats()
-
-    def __iter__(self):
-        yield from self.solve()
-
-    def solve(self, **kwargs):
-        objective_functions = list(self._model.objective_functions())
-        yield from self._solver.solve(self._model, objective_functions=objective_functions, **kwargs)
-
-    def optimize(self, **kwargs):
-        if not self.has_objectives():
-            raise RuntimeError("objective function(s) not set")
-        objective_functions = list(self._model.objective_functions())
-        return self._solver.optimize(self._model, objective_functions=objective_functions, **kwargs)

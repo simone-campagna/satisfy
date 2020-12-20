@@ -1,9 +1,9 @@
 import json
 
-from ..nonogram import NonogramSolver, pixmap_shape, pixmap_to_nonogram
+from ..nonogram import Nonogram, pixmap_shape, pixmap_to_nonogram
 
-from .demo_utils import (
-    iter_solutions,
+from .cli_utils import (
+    solve,
 )
 
 __all__ = [
@@ -80,8 +80,12 @@ No input file - using default nonogram:
     else:
         nonogram = json.load(input_file)
 
-    model_solver = NonogramSolver(nonogram, timeout=timeout, limit=limit)
-    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
-                                   profile=profile, compact=compact):
-        pixmap = model_solver.create_pixmap(solution)
-        print_nonogram_pixmap(pixmap)
+    model = Nonogram(nonogram)
+
+    def render_nonogram(solution):
+        pixmap = model.create_pixmap(solution)
+        return pixmap_to_image(pixmap)
+        
+    solve(model, timeout=timeout, limit=limit,
+          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          render_solution=render_nonogram)

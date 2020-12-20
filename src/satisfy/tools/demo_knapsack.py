@@ -1,9 +1,9 @@
 import json
 
-from ..knapsack import KnapsackSolver
+from ..knapsack import Knapsack
 
-from .demo_utils import (
-    iter_solutions,
+from .cli_utils import (
+    solve,
 )
 
 __all__ = [
@@ -65,14 +65,23 @@ No input file - using default data:
                 selected.append("_")
         return " ".join(selected)
 
-    model_solver = KnapsackSolver(values, capacities, weights, timeout=timeout, limit=limit)
-    for result in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
-                                 profile=profile, compact=compact):
-        print("is_optimal:", result.is_optimal)
-        if result.solution is None:
-            print("no solution found")
-        else:
-            knapsack_solution = model_solver.make_knapsack_solution(result)
-            print("solution:", repr(solution_string(knapsack_solution.solution)))
-            print("value:", knapsack_solution.value)
-            print("weights:", knapsack_solution.weights)
+    model = Knapsack(values, capacities, weights)
+
+    def render_knapsack_solution(solution):
+        knapsack_solution = model.make_knapsack_solution(solution)
+        return "{} [{:d}]".format(solution_string(knapsack_solution.solution), knapsack_solution.value)
+        
+    # REM def print_knapsack_result(optimization_result):
+    # REM     if optimization_result.solution is not None:
+    # REM         if optimization_result.is_optimal:
+    # REM             sol_type = 'optimal'
+    # REM         else:
+    # REM             sol_type = 'sub-optimal'
+    # REM         print("Found {} solution:".format(sol_type))
+    # REM         print_knapsack_solution(optimization_result.count, optimization_result.solution)
+    # REM     else:
+    # REM         print("No solution found")
+
+    solve(model, timeout=timeout, limit=limit,
+          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          render_solution=render_knapsack_solution)

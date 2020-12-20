@@ -6,46 +6,46 @@ import argcomplete
 
 from ..utils import INFINITY
 
-from .demo_cryptarithm import (
-    cryptarithm,
-    default_cryptarithm_system,
-)
-from .einstein_riddle import (
-    EinsteinRiddleSolver,
-)
-from .demo_einstein_riddle import (
-    einstein,
-)
-from .demo_graph_labeling import (
-    graph_labeling,
-    default_graph_labeling_source,
-)
+# from .demo_cryptarithm import (
+#     cryptarithm,
+#     default_cryptarithm_system,
+# )
+# from .einstein_riddle import (
+#     EinsteinRiddleSolver,
+# )
+# from .demo_einstein_riddle import (
+#     einstein,
+# )
+# from .demo_graph_labeling import (
+#     graph_labeling,
+#     default_graph_labeling_source,
+# )
 from .demo_knapsack import (
     knapsack,
     default_knapsack_source,
 )
-from .demo_ascii_map_coloring import (
-    ascii_map_coloring,
-    default_ascii_map_coloring_source,
-)
+# from .demo_ascii_map_coloring import (
+#     ascii_map_coloring,
+#     default_ascii_map_coloring_source,
+# )
 from .demo_nonogram import (
     nonogram,
     default_nonogram_source,
 )
-from .demo_queens import (
-    queens,
-)
-from .demo_sudoku import (
-    sudoku,
-    default_sudoku_source,
-)
-from .demo_four_rings import (
-    four_rings,
-    four_rings_description,
-)
-from .sat_tool import (
-    sat_tool,
-)
+# from .demo_queens import (
+#     queens,
+# )
+# from .demo_sudoku import (
+#     sudoku,
+#     default_sudoku_source,
+# )
+# from .demo_four_rings import (
+#     four_rings,
+#     four_rings_description,
+# )
+# from .sat_tool import (
+#     sat_tool,
+# )
 
 __all__ = [
     'main',
@@ -111,53 +111,53 @@ for instance, this is a 2-dimensional knapsack problem with 7 items:
         function=knapsack,
         function_args=["input_file"] + solve_args)
 
-    sudoku_parser = subparsers.add_parser(
-        "sudoku",
-        description="""\
-Solve a sudoku schema.
-
-The input file is a JSON file containing a sudoku schema, where 0 marks
-an unknown value. For instance:
-
-{example}
-
-""".format(example=default_sudoku_source()),
-        **common_args)
-    sudoku_parser.set_defaults(
-        function=sudoku,
-        function_args=["input_file"] + solve_args)
-
-    graph_labeling_parser = subparsers.add_parser(
-        "graph-labeling",
-        description="""\
-Solve a graph labeling problem.
-
-The input file is a JSON file containing the problem in NetworkX node link format.
-For instance:
-
-{example}
-
-""".format(example=default_graph_labeling_source()),
-        **common_args)
-    graph_labeling_parser.set_defaults(
-        function=graph_labeling,
-        function_args=["input_file", "labels"] + solve_args)
-
-    ascii_map_coloring_parser = subparsers.add_parser(
-        "ascii-map-coloring",
-        description="""\
-Solve a map_coloring problem.
-
-The input file is a simple ascii map, for instance:
-
-{example}
-
-""".format(example=default_ascii_map_coloring_source()),
-        **common_args)
-    ascii_map_coloring_parser.set_defaults(
-        function=ascii_map_coloring,
-        function_args=["input_file", "colors"] + solve_args)
-
+#     sudoku_parser = subparsers.add_parser(
+#         "sudoku",
+#         description="""\
+# Solve a sudoku schema.
+# 
+# The input file is a JSON file containing a sudoku schema, where 0 marks
+# an unknown value. For instance:
+# 
+# {example}
+# 
+# """.format(example=default_sudoku_source()),
+#         **common_args)
+#     sudoku_parser.set_defaults(
+#         function=sudoku,
+#         function_args=["input_file"] + solve_args)
+# 
+#     graph_labeling_parser = subparsers.add_parser(
+#         "graph-labeling",
+#         description="""\
+# Solve a graph labeling problem.
+# 
+# The input file is a JSON file containing the problem in NetworkX node link format.
+# For instance:
+# 
+# {example}
+# 
+# """.format(example=default_graph_labeling_source()),
+#         **common_args)
+#     graph_labeling_parser.set_defaults(
+#         function=graph_labeling,
+#         function_args=["input_file", "labels"] + solve_args)
+# 
+#     ascii_map_coloring_parser = subparsers.add_parser(
+#         "ascii-map-coloring",
+#         description="""\
+# Solve a map_coloring problem.
+# 
+# The input file is a simple ascii map, for instance:
+# 
+# {example}
+# 
+# """.format(example=default_ascii_map_coloring_source()),
+#         **common_args)
+#     ascii_map_coloring_parser.set_defaults(
+#         function=ascii_map_coloring,
+#         function_args=["input_file", "colors"] + solve_args)
+# 
     nonogram_parser = subparsers.add_parser(
         "nonogram",
         description="""\
@@ -174,14 +174,6 @@ For instance:
         function=nonogram,
         function_args=["input_file", "input_image"] + solve_args)
 
-    for parser in knapsack_parser, sudoku_parser, graph_labeling_parser, ascii_map_coloring_parser:
-        parser.add_argument(
-            "-i", "--input-file",
-            metavar="F",
-            default=None,
-            type=argparse.FileType('r'),
-            help="input filename")
-
     input_group = nonogram_parser.add_mutually_exclusive_group()
     input_group.add_argument(
         "-i", "--input-file",
@@ -195,137 +187,148 @@ For instance:
         default=None,
         type=argparse.FileType('r'),
         help="input image")
+# 
+#     graph_labeling_parser.add_argument(
+#         "-L", "--labels",
+#         nargs='+',
+#         default=['red', 'blue', 'green'],
+#         help="set node labels")
+# 
+#     ascii_map_coloring_parser.add_argument(
+#         "-C", "--colors",
+#         nargs='+',
+#         default=['red', 'blue', 'green', 'yellow'],
+#         help="set map colors")
+# 
+#     queens_parser = subparsers.add_parser(
+#         "queens",
+#         description="""\
+# Solve the N-queens problem: given an NxN chessboard, try to place N non
+# attacking queens.
+# 
+# """,
+#         **common_args)
+#     queens_parser.set_defaults(
+#         function=queens,
+#         function_args=["board_size"] + solve_args)
+# 
+#     queens_parser.add_argument(
+#         "-b", "--board-size",
+#         metavar="S",
+#         default=8,
+#         type=int,
+#         help="board size")
+# 
+#     einstein_parser = subparsers.add_parser(
+#         "einstein-riddle",
+#         description="""\
+# Solve the Einstein's riddle:
+# """ + EinsteinRiddleSolver.riddle(),
+#         **common_args)
+#     einstein_parser.set_defaults(
+#         function=einstein,
+#         function_args=[] + solve_args)
+# 
+#     cryptarithm_parser = subparsers.add_parser(
+#         "cryptarithm",
+#         description="""\
+# Solve cryptarithms, for instance:
+# 
+# {example}
+# 
+# """.format(example=' '.join(default_cryptarithm_system())),
+#         **common_args)
+#     cryptarithm_parser.set_defaults(
+#         function=cryptarithm,
+#         function_args=["system", "avoid_leading_zeros"] + solve_args)
+# 
+#     cryptarithm_parser.add_argument(
+#         "-z", "--avoid-leading-zeros",
+#         type=type_on_off,
+#         nargs='?', const='on',
+#         default=True,
+#         help="avoid leading zeros in numbers")
+# 
+#     input_group = cryptarithm_parser.add_mutually_exclusive_group()
+#     input_group.add_argument(
+#         "-i", "--input-file",
+#         dest="system",
+#         metavar="F",
+#         default=None,
+#         type=json_file,
+#         help="input JSON filename")
+#     input_group.add_argument(
+#         "-e", "--equation",
+#         dest="system",
+#         action="append",
+#         default=[],
+#         help="cryptarithm equation")
+# 
+#     four_rings_parser = subparsers.add_parser(
+#         "4-rings",
+#         description="""\
+# Solve the 4-rings problem:
+# 
+# {description}
+# 
+# """.format(description=four_rings_description()),
+#         **common_args)
+#     four_rings_parser.set_defaults(
+#         function=four_rings,
+#         function_args=["low", "high", "unique"] + solve_args)
+# 
+#     four_rings_parser.add_argument(
+#         '-L', '--low',
+#         type=int, default=0,
+#         help='minimum value for the variables (defaults to 0)')
+# 
+#     four_rings_parser.add_argument(
+#         '-H', '--high',
+#         type=int, default=9,
+#         help='maximum value for the variables (defaults to 0)')
+#     fr_unique_mgrp = four_rings_parser.add_mutually_exclusive_group()
+#     fr_unique_kwargs = {'dest': 'unique', 'default': True}
+#     fr_unique_mgrp.add_argument(
+#         '-u', '--unique',
+#         action='store_true',
+#         help='unique variable values (default)',
+#         **fr_unique_kwargs)
+#     fr_unique_mgrp.add_argument(
+#         '-U', '--not-unique',
+#         action='store_false',
+#         help='allows not unique variable values',
+#         **fr_unique_kwargs)
+# 
+#     sat_parser = subparsers.add_parser(
+#         "sat",
+#         description="""\
+# Solve a generic model described as SAT file
+# """,
+#         **common_args)
+#     sat_parser.set_defaults(
+#         function=sat_tool,
+#         function_args=["input_file"] + solve_args)
+# 
+#     sat_parser.add_argument(
+#         'input_file',
+#         type=argparse.FileType('r'),
+#         default=sys.stdin,
+#         help='SAT input file (defaults to STDIN)')
+# 
+#     for parser in knapsack_parser, sudoku_parser, graph_labeling_parser, ascii_map_coloring_parser:
+    for parser in [knapsack_parser]:
+        parser.add_argument(
+            "-i", "--input-file",
+            metavar="F",
+            default=None,
+            type=argparse.FileType('r'),
+            help="input filename")
+# 
+#     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
+#                      graph_labeling_parser, ascii_map_coloring_parser,
+#                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
+    solve_parsers = [knapsack_parser, nonogram_parser]
 
-    graph_labeling_parser.add_argument(
-        "-L", "--labels",
-        nargs='+',
-        default=['red', 'blue', 'green'],
-        help="set node labels")
-
-    ascii_map_coloring_parser.add_argument(
-        "-C", "--colors",
-        nargs='+',
-        default=['red', 'blue', 'green', 'yellow'],
-        help="set map colors")
-
-    queens_parser = subparsers.add_parser(
-        "queens",
-        description="""\
-Solve the N-queens problem: given an NxN chessboard, try to place N non
-attacking queens.
-
-""",
-        **common_args)
-    queens_parser.set_defaults(
-        function=queens,
-        function_args=["board_size"] + solve_args)
-
-    queens_parser.add_argument(
-        "-b", "--board-size",
-        metavar="S",
-        default=8,
-        type=int,
-        help="board size")
-
-    einstein_parser = subparsers.add_parser(
-        "einstein-riddle",
-        description="""\
-Solve the Einstein's riddle:
-""" + EinsteinRiddleSolver.riddle(),
-        **common_args)
-    einstein_parser.set_defaults(
-        function=einstein,
-        function_args=[] + solve_args)
-
-    cryptarithm_parser = subparsers.add_parser(
-        "cryptarithm",
-        description="""\
-Solve cryptarithms, for instance:
-
-{example}
-
-""".format(example=' '.join(default_cryptarithm_system())),
-        **common_args)
-    cryptarithm_parser.set_defaults(
-        function=cryptarithm,
-        function_args=["system", "avoid_leading_zeros"] + solve_args)
-
-    cryptarithm_parser.add_argument(
-        "-z", "--avoid-leading-zeros",
-        type=type_on_off,
-        nargs='?', const='on',
-        default=True,
-        help="avoid leading zeros in numbers")
-
-    input_group = cryptarithm_parser.add_mutually_exclusive_group()
-    input_group.add_argument(
-        "-i", "--input-file",
-        dest="system",
-        metavar="F",
-        default=None,
-        type=json_file,
-        help="input JSON filename")
-    input_group.add_argument(
-        "-e", "--equation",
-        dest="system",
-        action="append",
-        default=[],
-        help="cryptarithm equation")
-
-    four_rings_parser = subparsers.add_parser(
-        "4-rings",
-        description="""\
-Solve the 4-rings problem:
-
-{description}
-
-""".format(description=four_rings_description()),
-        **common_args)
-    four_rings_parser.set_defaults(
-        function=four_rings,
-        function_args=["low", "high", "unique"] + solve_args)
-
-    four_rings_parser.add_argument(
-        '-L', '--low',
-        type=int, default=0,
-        help='minimum value for the variables (defaults to 0)')
-
-    four_rings_parser.add_argument(
-        '-H', '--high',
-        type=int, default=9,
-        help='maximum value for the variables (defaults to 0)')
-    fr_unique_mgrp = four_rings_parser.add_mutually_exclusive_group()
-    fr_unique_kwargs = {'dest': 'unique', 'default': True}
-    fr_unique_mgrp.add_argument(
-        '-u', '--unique',
-        action='store_true',
-        help='unique variable values (default)',
-        **fr_unique_kwargs)
-    fr_unique_mgrp.add_argument(
-        '-U', '--not-unique',
-        action='store_false',
-        help='allows not unique variable values',
-        **fr_unique_kwargs)
-
-    sat_parser = subparsers.add_parser(
-        "sat",
-        description="""\
-Solve a generic model described as SAT file
-""",
-        **common_args)
-    sat_parser.set_defaults(
-        function=sat_tool,
-        function_args=["input_file"] + solve_args)
-
-    sat_parser.add_argument(
-        'input_file',
-        type=argparse.FileType('r'),
-        default=sys.stdin,
-        help='SAT input file (defaults to STDIN)')
-
-    solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
-                     graph_labeling_parser, ascii_map_coloring_parser,
-                     cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
     for parser in solve_parsers:
         parser.add_argument(
             "-t", "--timeout",
