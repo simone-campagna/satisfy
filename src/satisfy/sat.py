@@ -6,7 +6,9 @@ import operator
 import ply.lex as lex
 import ply.yacc as yacc
  
-from satisfy import Model, Maximize, Minimize
+from .model import Model
+from .objective import Maximize, Minimize
+from . import expression as _expr
 
 
 __all__ = [
@@ -71,12 +73,12 @@ class Sat(Model):
         self.domains = {}
         self.vars = {}
 
-    def define_domain(self, name, domain):
+    def define_sat_domain(self, p, name, domain):
         # print("DEFINE DOMAIN {} := {!r}".format(name, domain))
         self.domains[name] = domain
         return domain
 
-    def define_vars(self, domain, *names):
+    def define_sat_vars(self, p, domain, *names):
         if isinstance(domain, str):
             domain = self.domains[domain]
         variables = []
@@ -87,12 +89,15 @@ class Sat(Model):
             variables.append(var)
         return variables
 
-    def add_constraint(self, constraint):
-        super().add_constraint(constraint)
+    def add_sat_constraint(self, p, constraint_type, constraint):
+        if constraint_type == 'all_different_constraint':
+            self.add_all_different_constraint([self.vars[x] for x in constraint])
+        else:
+            self.add_constraint(constraint)
         return constraint
 
-    def add_objective(self, objective_name, expression):
-        super().add_objective(OBJECTIVE[objective_name](expression))
+    def add_sat_objective(self, p, objective_name, expression):
+        self.add_objective(OBJECTIVE[objective_name](expression))
 
 
 class SatLexer:
@@ -122,36 +127,49 @@ class SatLexer:
        'SYMBOL',
        'DEF_DOMAIN',
        'DEF_VAR',
-       'DEF_OBJECTIVE',
        'NEWLINE',
+       'OBJECTIVE',
+       'CONSTRAINT',
+       'ALL_DIFFERENT_CONSTRAINT',
     )
     
     # Regular expression rules for simple tokens
-    t_PLUS               = r'\+'
-    t_MINUS              = r'-'
-    t_TIMES              = r'\*'
-    t_DIVIDE             = r'/'
-    t_POW                = r'\*\*'
-    t_GT                 = r'\>'
-    t_GE                 = r'\>\='
-    t_LT                 = r'\<'
-    t_LE                 = r'\<\='
-    t_EQ                 = r'\=\='
-    t_NE                 = r'\!\='
-    t_AND                = r'\&'
-    t_OR                 = r'\|'
-    t_NOT                = r'\!'
-    t_LPAREN             = r'\('
-    t_RPAREN             = r'\)'
-    t_COLON              = r'\:'
-    t_COMMA              = r'\,'
-    t_SYMBOL             = r'[a-zA-Z]\w*'
-    t_L_SQUARE_BRACKET   = r'\['
-    t_R_SQUARE_BRACKET   = r'\]'
-    t_DEF_DOMAIN         = r'\:\='
-    t_DEF_VAR            = r'\:\:'
-    t_DEF_OBJECTIVE      = r'objective\:'
-    
+    t_PLUS                     = r'\+'
+    t_MINUS                    = r'-'
+    t_TIMES                    = r'\*'
+    t_DIVIDE                   = r'/'
+    t_POW                      = r'\*\*'
+    t_GT                       = r'\>'
+    t_GE                       = r'\>\='
+    t_LT                       = r'\<'
+    t_LE                       = r'\<\='
+    t_EQ                       = r'\=\='
+    t_NE                       = r'\!\='
+    t_AND                      = r'\&'
+    t_OR                       = r'\|'
+    t_NOT                      = r'\!'
+    t_LPAREN                   = r'\('
+    t_RPAREN                   = r'\)'
+    t_COLON                    = r'\:'
+    t_COMMA                    = r'\,'
+    t_SYMBOL                   = r'[a-zA-Z]\w*'
+    t_L_SQUARE_BRACKET         = r'\['
+    t_R_SQUARE_BRACKET         = r'\]'
+    t_DEF_DOMAIN               = r'\:\='
+    t_DEF_VAR                  = r'\:\:'
+
+    def t_OBJECTIVE(self, t):
+        r'minimize|maximize'
+        return t
+
+    def t_CONSTRAINT(self, t):
+        r'constraint'
+        return t
+
+    def t_ALL_DIFFERENT_CONSTRAINT(self, t):
+        r'all_different_constraint'
+        return t
+
     def t_NUMBER(self, t):
         r'\d+'
         t.value = int(t.value)    
@@ -228,7 +246,7 @@ class SatParser:
     def p_domain_definition(self, p):
         'domain_definition : SYMBOL DEF_DOMAIN domain'
         #print("DEF", p[1], p[3])
-        p[0] = self.sat.define_domain(p[1], p[3])
+        p[0] = self.sat.define_sat_domain(p, p[1], p[3])
 
     def p_domain(self, p):
         'domain : L_SQUARE_BRACKET domain_content R_SQUARE_BRACKET'
@@ -258,14 +276,14 @@ class SatParser:
 
     def p_var_definition_single(self, p):
         'var_definition : SYMBOL DEF_VAR domain_value'
-        p[0] = self.sat.define_vars(p[3], *p[1])
+        p[0] = self.sat.define_sat_vars(p, p[3], *p[1])
 
     def p_var_definition_multiple(self, p):
         'var_definition : var_list DEF_VAR SYMBOL'
-        p[0] = self.sat.define_vars(p[3], *p[1])
+        p[0] = self.sat.define_sat_vars(p, p[3], *p[1])
 
     def p_var_list_single(self, p):
-        'var_list : SYMBOL'
+        '''var_list : SYMBOL'''
         p[0] = [p[1]]
 
     def p_var_list_multiple(self, p):
@@ -274,8 +292,12 @@ class SatParser:
 
     ### CONSTRAINT
     def p_constraint_definition(self, p):
-        '''constraint_definition : comp_binop'''
-        p[0] = self.sat.add_constraint(p[1])
+        '''constraint_definition : CONSTRAINT LPAREN expression RPAREN'''
+        p[0] = self.sat.add_sat_constraint(p, p[1], p[3])
+
+    def p_all_different_constraint_definition(self, p):
+        '''constraint_definition : ALL_DIFFERENT_CONSTRAINT LPAREN var_list RPAREN'''
+        p[0] = self.sat.add_sat_constraint(p, p[1], p[3])
 
     precedence = (
         ('nonassoc', 'LE', 'LT', 'GE', 'GT', 'EQ', 'NE'),
@@ -284,23 +306,35 @@ class SatParser:
         ('left', 'PLUS', 'MINUS'),
         ('left', 'TIMES', 'DIVIDE'),
         ('right', 'POW'),
+        ('right', 'UNARY'),
     )
-                       # | expression LT expression
-                       # | expression LE expression
-                       # | expression GT expression
-                       # | expression GE expression
-                       # | expression EQ expression
-                       # | expression NE expression
-                       # | expression AND expression
-                       # | expression OR expression
 
     def p_expression(self, p):
-        ''' expression : expr_binop
-                       | comp_binop
-                       | LPAREN expression RPAREN
-                       | SYMBOL
-                       | NUMBER'''
+        '''expression : expr_binop
+                      | expr_unop
+                      | paren_expression
+                      | SYMBOL
+                      | NUMBER'''
         p[0] = make_value(self.sat, p[1])
+
+    def p_paren_expression(self, p):
+        '''paren_expression : LPAREN expression RPAREN'''
+        p[0] = make_value(self.sat, p[2])
+
+    def p_expr_unop(self, p):
+        '''expr_unop : PLUS expression  %prec UNARY
+                     | MINUS expression %prec UNARY
+                     | NOT expression   %prec UNARY
+        '''
+        if p[1] == '+':
+            value = p[2]
+        elif p[1] == '-':
+            value = -p[2]
+        elif p[1] == '!':
+            value = not p[2]
+        else:
+            raise RuntimeError('internal error: unexpected operator {}'.format(p[1]))
+        p[0] = make_value(self.sat, value)
 
     def p_expr_binop(self, p):
         '''expr_binop : expression PLUS expression
@@ -308,11 +342,7 @@ class SatParser:
                       | expression TIMES expression
                       | expression DIVIDE expression
                       | expression POW expression
-        '''
-        p[0] = make_binop(self.sat, p[1], p[2], p[3])
-
-    def p_comp_binop(self, p):
-        '''comp_binop : expression AND expression
+                      | expression AND expression
                       | expression OR expression
                       | expression GT expression
                       | expression GE expression
@@ -325,8 +355,8 @@ class SatParser:
 
     ### OBJECTIVE
     def p_objective_definition(self, p):
-        'objective_definition : DEF_OBJECTIVE SYMBOL LPAREN expression RPAREN'
-        p[0] = self.sat.add_objective(p[2], p[4])
+        'objective_definition : OBJECTIVE LPAREN expression RPAREN'
+        p[0] = self.sat.add_sat_objective(p, p[1], p[3])
  
     ### ERROR:
     def p_error(self, t):

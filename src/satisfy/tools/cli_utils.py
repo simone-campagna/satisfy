@@ -105,7 +105,15 @@ def solve(model, timeout, limit, profile=False, show_stats=False, show_model=Fal
           render_solution=render_solution, print_optimization_result=print_optimization_result):
     if show_mode is ShowMode.BRIEF:
         show_mode = ShowMode.COMPACT
-        render_solution = brief_render_solution
+        use_render_solution = brief_render_solution
+    else:
+        use_render_solution = render_solution
+    if show_mode is ShowMode.QUIET:
+        render_show_mode = ShowMode.DEFAULT
+        use_render_result = render_solution
+    else:
+        render_show_mode = show_mode
+        use_render_result = use_render_solution
 
     if show_model:
         print_model(model)
@@ -116,9 +124,9 @@ def solve(model, timeout, limit, profile=False, show_stats=False, show_model=Fal
         with profiling(profile):
             for solution in model_solver:
                 if render_solution:
-                    print_solution(solution, stats, render_solution, show_mode=show_mode)
+                    print_solution(solution, stats, use_render_solution, show_mode=show_mode)
         if model.has_objectives() and print_optimization_result:
             optimization_result = model_solver.get_optimization_result()
-            print_optimization_result(optimization_result, stats, render_solution, show_mode=show_mode)
+            print_optimization_result(optimization_result, stats, use_render_result, show_mode=render_show_mode)
         if show_stats:
             print_solve_stats(state)
