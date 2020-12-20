@@ -10,12 +10,12 @@ from .demo_cryptarithm import (
     cryptarithm,
     default_cryptarithm_system,
 )
-# from .einstein_riddle import (
-#     EinsteinRiddleSolver,
-# )
-# from .demo_einstein_riddle import (
-#     einstein,
-# )
+from .einstein_riddle import (
+    EinsteinRiddle,
+)
+from .demo_einstein_riddle import (
+    einstein,
+)
 # from .demo_graph_labeling import (
 #     graph_labeling,
 #     default_graph_labeling_source,
@@ -219,16 +219,16 @@ For instance:
 #         type=int,
 #         help="board size")
 # 
-#     einstein_parser = subparsers.add_parser(
-#         "einstein-riddle",
-#         description="""\
-# Solve the Einstein's riddle:
-# """ + EinsteinRiddleSolver.riddle(),
-#         **common_args)
-#     einstein_parser.set_defaults(
-#         function=einstein,
-#         function_args=[] + solve_args)
-# 
+    einstein_parser = subparsers.add_parser(
+        "einstein-riddle",
+        description="""\
+Solve the Einstein's riddle:
+""" + EinsteinRiddle.riddle(),
+        **common_args)
+    einstein_parser.set_defaults(
+        function=einstein,
+        function_args=[] + solve_args)
+
     cryptarithm_parser = subparsers.add_parser(
         "cryptarithm",
         description="""\
@@ -327,7 +327,7 @@ Solve cryptarithms, for instance:
 #     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
 #                      graph_labeling_parser, ascii_map_coloring_parser,
 #                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
-    solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser]
+    solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser]
 
     for parser in solve_parsers:
         parser.add_argument(
