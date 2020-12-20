@@ -1,9 +1,10 @@
 import collections
 
-from .solver import ModelSolver, SelectVar, SelectValue
+from .model import Model
+from .solver import Solver, SelectVar, SelectValue
 
 __all__ = [
-    'NonogramSolver',
+    'Nonogram',
     'pixmap_shape',
     'pixmap_to_nonogram',
 ]
@@ -13,14 +14,9 @@ VarInfo = collections.namedtuple('VarInfo', 'size start_value end_value')
     
 
 
-class NonogramSolver(ModelSolver):
+class Nonogram(Model):
     def __init__(self, nonogram, **args):
-        if args.get('select_var', None) is None:
-            args['select_var'] = SelectVar.max_bound
-        if args.get('select_value', None) is None:
-            args['select_value'] = SelectValue.min_value
         super().__init__(**args)
-        model = self._model
         rows = nonogram['rows']
         cols = nonogram['columns']
         num_rows = len(rows)
@@ -38,15 +34,15 @@ class NonogramSolver(ModelSolver):
                     offset = size + int(k != len(row) - 1)
                     end = num_cols - rem_size + 1
                     domain = list(range(start, end))
-                    var = model.add_int_variable(name='r{}_{}'.format(r, k), domain=domain)
+                    var = self.add_int_variable(name='r{}_{}'.format(r, k), domain=domain)
                     var_infos[var.name] = VarInfo(size=size, start_value=start, end_value=end + size)
-                    # model.add_constraint(var + size <= num_cols)  # TODO diff SERVE???
+                    # self.add_constraint(var + size <= num_cols)  # TODO diff SERVE???
                     start += offset
                     rem_size -= offset
                     if cur_vars:
                         prev_var = cur_vars[-1]
                         constraint = var > prev_var + var_infos[prev_var.name].size
-                        model.add_constraint(constraint)
+                        self.add_constraint(constraint)
                     cur_vars.append(var)
 
         # add col vars and constraints:
@@ -60,15 +56,15 @@ class NonogramSolver(ModelSolver):
                     offset = size + int(k != len(col) - 1)
                     end = num_rows - rem_size + 1
                     domain = list(range(start, end))
-                    var = model.add_int_variable(name='c{}_{}'.format(c, k), domain=domain)
+                    var = self.add_int_variable(name='c{}_{}'.format(c, k), domain=domain)
                     var_infos[var.name] = VarInfo(size=size, start_value=start, end_value=end + size)
-                    # model.add_constraint(var + size <= num_rows)  # TODO diff SERVE???
+                    # self.add_constraint(var + size <= num_rows)  # TODO diff SERVE???
                     start += offset
                     rem_size -= offset
                     if cur_vars:
                         prev_var = cur_vars[-1]
                         constraint = var > prev_var + var_infos[prev_var.name].size
-                        model.add_constraint(constraint)
+                        self.add_constraint(constraint)
                     cur_vars.append(var)
 
         # add row<>col constraints:
@@ -81,7 +77,7 @@ class NonogramSolver(ModelSolver):
                     if var_info.start_value <= c < var_info.end_value:
                         r_expr_list.append((var <= c) & (c < var + size))
                     # else:
-                    #     print("r: {}: discard {} ({})".format(var.name, c, var_info), model.get_var_domain(var))
+                    #     print("r: {}: discard {} ({})".format(var.name, c, var_info), self.get_var_domain(var))
                 c_expr_list = []
                 for var in col_vars[c]:
                     size = var_infos[var.name].size
@@ -89,7 +85,7 @@ class NonogramSolver(ModelSolver):
                     if var_info.start_value <= r < var_info.end_value:
                         c_expr_list.append((var <= r) & (r < var + size))
                     # else:
-                    #     print("c: {}: discard {} ({})".format(var.name, r, var_info), model.get_var_domain(var))
+                    #     print("c: {}: discard {} ({})".format(var.name, r, var_info), self.get_var_domain(var))
                 if r_expr_list or c_expr_list:
                     if r_expr_list:
                         r_expr = sum(r_expr_list)
@@ -100,13 +96,20 @@ class NonogramSolver(ModelSolver):
                     else:
                         c_expr = 0
                     constraint = (sum(r_expr_list) == sum(c_expr_list))
-                    model.add_constraint(constraint)
+                    self.add_constraint(constraint)
 
         # instance attributes:
         self._var_infos = var_infos
         self._shape = (num_rows, num_cols)
         self._row_vars = row_vars
         self._col_vars = col_vars
+
+    def solver(self, **kwargs):
+        return Solver(
+            select_var=kwargs.pop('select_var', SelectVar.max_bound),
+            select_value=kwargs.pop('select_value', SelectValue.min_value),
+            **kwargs
+        )
 
     @property
     def source(self):

@@ -11,7 +11,7 @@ from .demo_cryptarithm import (
     default_cryptarithm_system,
 )
 from .einstein_riddle import (
-    EinsteinRiddleSolver,
+    EinsteinRiddle,
 )
 from .demo_einstein_riddle import (
     einstein,
@@ -174,14 +174,6 @@ For instance:
         function=nonogram,
         function_args=["input_file", "input_image"] + solve_args)
 
-    for parser in knapsack_parser, sudoku_parser, graph_labeling_parser, ascii_map_coloring_parser:
-        parser.add_argument(
-            "-i", "--input-file",
-            metavar="F",
-            default=None,
-            type=argparse.FileType('r'),
-            help="input filename")
-
     input_group = nonogram_parser.add_mutually_exclusive_group()
     input_group.add_argument(
         "-i", "--input-file",
@@ -231,7 +223,7 @@ attacking queens.
         "einstein-riddle",
         description="""\
 Solve the Einstein's riddle:
-""" + EinsteinRiddleSolver.riddle(),
+""" + EinsteinRiddle.riddle(),
         **common_args)
     einstein_parser.set_defaults(
         function=einstein,
@@ -323,9 +315,21 @@ Solve a generic model described as SAT file
         default=sys.stdin,
         help='SAT input file (defaults to STDIN)')
 
-    solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
-                     graph_labeling_parser, ascii_map_coloring_parser,
-                     cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
+    for parser in [knapsack_parser, graph_labeling_parser, ascii_map_coloring_parser, sudoku_parser]:
+        parser.add_argument(
+            "-i", "--input-file",
+            metavar="F",
+            default=None,
+            type=argparse.FileType('r'),
+            help="input filename")
+# 
+#     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
+#                      graph_labeling_parser, ascii_map_coloring_parser,
+#                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
+    solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser,
+                     graph_labeling_parser, ascii_map_coloring_parser, queens_parser,
+                     sudoku_parser, four_rings_parser, sat_parser]
+
     for parser in solve_parsers:
         parser.add_argument(
             "-t", "--timeout",

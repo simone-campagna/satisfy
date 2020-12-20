@@ -2,10 +2,11 @@ import json
 
 import networkx as nx
 
-from ..graph_labeling import GraphLabelingSolver
+from ..graph_labeling import GraphLabeling
 
-from .demo_utils import (
-    iter_solutions,
+from .cli_utils import (
+    render_solution,
+    solve,
 )
 
 __all__ = [
@@ -91,7 +92,12 @@ No input file - using default data:
 
     graph = nx.node_link_graph(data)
 
-    model_solver = GraphLabelingSolver(graph, labels, timeout=timeout, limit=limit)
-    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
-                                   profile=profile, compact=compact):
-        print(model_solver.create_node_labels(solution))
+    model = GraphLabeling(graph, labels)
+
+    def render_graph(solution):
+        return render_solution(model.create_node_labels(solution))
+
+
+    solve(model, timeout=timeout, limit=limit,
+          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          render_solution=render_graph)

@@ -1,9 +1,9 @@
 import json
 
-from ..sudoku import SudokuSolver
+from ..sudoku import Sudoku
 
-from .demo_utils import (
-    iter_solutions,
+from .cli_utils import (
+    solve,
 )
 
 __all__ = [
@@ -30,7 +30,7 @@ def default_sudoku_source():
     return DEFAULT_SUDOKU_SOURCE
 
 
-def print_sudoku_schema(schema):
+def render_sudoku_schema(schema):
     values = {1, 2, 3, 4, 5, 6, 7, 8, 9}
     def convert_value(value):
         if value in values:
@@ -49,8 +49,9 @@ def print_sudoku_schema(schema):
         else:
             return "."
 
+    lines = []
     for br in range(3):
-        print(hline)
+        lines.append(hline)
         hline = mline
         for sr in range(3):
             r = (br * 3) + sr
@@ -59,8 +60,9 @@ def print_sudoku_schema(schema):
             lst.insert(6, '│')
             lst.insert(3, '│')
             lst.insert(0, '│')
-            print(''.join(lst))
-    print(bline)
+            lines.append(''.join(lst))
+    lines.append(bline)
+    return '\n'.join(lines)
 
 
 def sudoku(input_file, timeout, limit, show_model, show_stats, profile, compact):
@@ -75,9 +77,13 @@ No input file - using default schema:
         schema = json.load(input_file)
 
     print("=== sudoku schema ===")
-    print_sudoku_schema(schema)
-    num_solutions = 0
-    model_solver = SudokuSolver(schema, timeout=timeout, limit=limit)
-    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
-                                   profile=profile, compact=compact):
-        print_sudoku_schema(schema)
+    print(render_sudoku_schema(schema))
+    model = Sudoku(schema)
+
+    def render_solution(solution):
+        schema = model.create_schema(solution)
+        return render_sudoku_schema(schema)
+
+    solve(model, timeout=timeout, limit=limit,
+          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          render_solution=render_solution)

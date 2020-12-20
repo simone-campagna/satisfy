@@ -3,20 +3,17 @@ import itertools
 import operator
 import re
 
-from .solver import ModelSolver, SelectVar, SelectValue
+from .model import Model, SelectVar, SelectValue
+from .solver import Solver, SelectVar, SelectValue
 
 __all__ = [
-    'CryptarithmSolver',
+    'Cryptarithm',
 ]
 
 
     
-class CryptarithmSolver(ModelSolver):
+class Cryptarithm(Model):
     def __init__(self, system, avoid_leading_zeros=True, **args):
-        if args.get('select_var', None) is None:
-            args['select_var'] = SelectVar.max_bound
-        if args.get('select_value', None) is None:
-            args['select_value'] = SelectValue.max_value
         if isinstance(system, str):
             system = [system]
         numbers = set()
@@ -67,13 +64,12 @@ class CryptarithmSolver(ModelSolver):
         digits = tuple(range(10))
         non_zero_digits = digits[1:]
         variables = {}
-        model = self._model
         for letter in letters:
             if letter in non_zero_letters:
                 domain = non_zero_digits
             else:
                 domain = digits
-            variables[letter] = model.add_int_variable(domain=domain, name=letter)
+            variables[letter] = self.add_int_variable(domain=domain, name=letter)
         # expressions = {}
         # for number in numbers:
         #     n_expr = 0
@@ -85,13 +81,20 @@ class CryptarithmSolver(ModelSolver):
         slist = []
         for source, mod_source in zip(system, mod_sources):
             expression = eval(mod_source, variables.copy())
-            model.add_all_different_constraint(list(variables.values()))
-            model.add_constraint(expression)
+            self.add_all_different_constraint(list(variables.values()))
+            self.add_constraint(expression)
             elist.append(expression)
             slist.append(source)
         self._expressions = tuple(elist)
         self._system = tuple(slist)
 
+
+    def solver(self, **kwargs):
+        return Solver(
+            select_var=kwargs.pop('select_var', SelectVar.max_bound),
+            select_value=kwargs.pop('select_value', SelectValue.max_value),
+            **kwargs
+        )
     @property
     def system(self):
         return self._system

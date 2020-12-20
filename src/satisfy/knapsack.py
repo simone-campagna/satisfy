@@ -2,26 +2,21 @@ import collections
 
 from .model import Model
 from .objective import Maximize
-from .solver import ModelSolver, SelectVar, SelectValue
+from .solver import Solver, SelectVar, SelectValue
 
 __all__ = [
-    'KnapsackSolver',
+    'Knapsack',
 ]
 
 
 KnapsackSolution = collections.namedtuple(
     "KnapsackSolution",
-    "is_optimal solution value weights")
+    "solution value weights")
 
 
-class KnapsackSolver(ModelSolver):
-    def __init__(self, values, capacities, weights, **args):
-        if args.get('select_var', None) is None:
-            args['select_var'] = SelectVar.group_prio
-        if args.get('select_value', None) is None:
-            args['select_value'] = SelectValue.min_value
-        super().__init__(**args)
-        model = self._model
+class Knapsack(Model):
+    def __init__(self, values, capacities, weights):
+        super().__init__()
         values = tuple(values)
         if not values:
             return
@@ -45,35 +40,32 @@ class KnapsackSolver(ModelSolver):
             ws.append(w)
         if len(ws) < len(values):
             raise ValueError("too few weights")
-        variables = [model.add_bool_variable(name="i_{}".format(i)) for i in range(len(values))]
+        variables = [self.add_bool_variable(name="i_{}".format(i)) for i in range(len(values))]
         constraints = []
         for idx, capacity in enumerate(capacities):
-            constraint = model.add_constraint(sum(var * weight[idx] for var, weight in zip(variables, weights)) <= capacity)
-        model.add_objective(Maximize(sum(var * value for var, value in zip(variables, values))))
+            constraint = self.add_constraint(sum(var * weight[idx] for var, weight in zip(variables, weights)) <= capacity)
+        self.add_objective(Maximize(sum(var * value for var, value in zip(variables, values))))
         self._values = values
         self._capacities = capacities
         self._weights = weights
-        self._variables = variables
-        self._model = model
+        self._k_variables = variables
 
-    def make_knapsack_solution(self, opt_result):
+    def solver(self, **kwargs):
+        return Solver(
+            select_var=kwargs.pop('select_var', SelectVar.group_prio),
+            select_value=kwargs.pop('select_value', SelectValue.min_value),
+            **kwargs
+        )
+
+    def make_knapsack_solution(self, solution):
         values = self._values
         capacities = self._capacities
         weights = self._weights
-        variables = self._variables
-        model = self._model
-        solver = self._solver
-        opt_solution = opt_result.solution
-        if opt_solution is not None:
-            solution = tuple(opt_solution[var.name] for var in variables)
-            value = sum(selected * val for selected, val in zip(solution, values))
-            weights = tuple(sum(selected * weight[idx] for selected, weight in zip(solution, weights)) for idx in range(len(capacities)))
-        else:
-            solution = None
-            value = None
-            weights = None
+        variables = self._k_variables
+        k_solution = tuple(solution[var.name] for var in variables)
+        value = sum(selected * val for selected, val in zip(k_solution, values))
+        weights = tuple(sum(selected * weight[idx] for selected, weight in zip(k_solution, weights)) for idx in range(len(capacities)))
         return KnapsackSolution(
-            is_optimal=opt_result.is_optimal,
-            solution=solution,
+            solution=k_solution,
             value=value,
             weights=weights)

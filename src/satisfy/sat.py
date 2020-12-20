@@ -6,7 +6,7 @@ import operator
 import ply.lex as lex
 import ply.yacc as yacc
  
-from satisfy import ModelSolver, Maximize, Minimize
+from satisfy import Model, Maximize, Minimize
 
 
 __all__ = [
@@ -65,7 +65,7 @@ def make_binop(sat, l, op, r):
     return BINOP[op](make_value(sat, l), make_value(sat, r))
 
 
-class Sat(ModelSolver):
+class Sat(Model):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.domains = {}
@@ -82,17 +82,17 @@ class Sat(ModelSolver):
         variables = []
         for name in names:
             # print("DEFINE VAR {} :: {!r}".format(name, domain))
-            var = self.model.add_int_variable(domain, name=name)
+            var = self.add_int_variable(domain, name=name)
             self.vars[name] = var
             variables.append(var)
         return variables
 
     def add_constraint(self, constraint):
-        self.model.add_constraint(constraint)
+        super().add_constraint(constraint)
         return constraint
 
     def add_objective(self, objective_name, expression):
-        self.model.add_objective(OBJECTIVE[objective_name](expression))
+        super().add_objective(OBJECTIVE[objective_name](expression))
 
 
 class SatLexer:

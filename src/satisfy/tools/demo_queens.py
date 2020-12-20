@@ -1,19 +1,19 @@
-from .demo_utils import (
-    iter_solutions,
+from .cli_utils import (
+    solve,
 )
 
 __all__ = [
     'queens',
 ]
 
-from .queens import QueensSolver
+from .queens import Queens
 
 __all__ = [
     'queens',
 ]
 
 
-def print_queens_board(board_size, board):
+def render_queens_board(board_size, board):
     queen = " ♛ "
     empty = "   "
     uline = '┌' + '┬'.join(['───'] * board_size) + '┐'
@@ -21,8 +21,9 @@ def print_queens_board(board_size, board):
     bline = '└' + '┴'.join(['───'] * board_size) + '┘'
     sep = '+' * (board_size + 1)
     hline = uline
+    lines = []
     for board_row in board:
-        print(hline)
+        lines.append(hline)
         hline = mline
         row = []
         for is_queen in board_row:
@@ -30,12 +31,17 @@ def print_queens_board(board_size, board):
                 row.append(queen)
             else:
                 row.append(empty)
-        print('│' + '│'.join(row) + '│')
-    print(bline)
+        lines.append('│' + '│'.join(row) + '│')
+    lines.append(bline)
+    return '\n'.join(lines)
 
 
 def queens(board_size, timeout, limit, show_model, show_stats, profile, compact):
-    model_solver = QueensSolver(board_size, timeout=timeout, limit=limit)
-    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
-                                   profile=profile, compact=compact):
-        print_queens_board(board_size, model_solver.create_board(solution))
+    model = Queens(board_size)
+
+    def render_queens(solution):
+        return render_queens_board(board_size, model.create_board(solution))
+
+    solve(model, timeout=timeout, limit=limit,
+          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          render_solution=render_queens)

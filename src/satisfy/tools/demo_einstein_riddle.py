@@ -1,15 +1,15 @@
-from .demo_utils import (
-    iter_solutions,
+from .cli_utils import (
+    solve,
 )
 
-from .einstein_riddle import EinsteinRiddleSolver
+from .einstein_riddle import EinsteinRiddle
 
 __all__ = [
     'einstein',
 ]
 
 
-def print_einstein_riddle_solution(solution):
+def render_riddle_solution(solution):
     ordinal = {
         1: 'first',
         2: 'second',
@@ -18,18 +18,23 @@ def print_einstein_riddle_solution(solution):
         5: 'fifth',
     }
     fmt = "{found} The {owner}, who lives in the {hordinal} {color} house, drinks {drink}, smokes {smoke} and has {animal}."
+    lines = []
     for hindex, var_d in solution.items():
         if var_d['animal'] == 'a zebra':
             found = "[*]"
         else:
             found = "   "
-        print(fmt.format(hordinal=ordinal[hindex], found=found, **var_d))
+        lines.append(fmt.format(hordinal=ordinal[hindex], found=found, **var_d))
+    return '\n'.join(lines)
 
 
 def einstein(timeout, limit, show_model, show_stats, profile, compact):
-    model_solver = EinsteinRiddleSolver(timeout=timeout, limit=limit)
-    print(model_solver.riddle())
+    model = EinsteinRiddle()
+    print(model.riddle())
 
-    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
-                                   profile=profile, compact=compact):
-        print_einstein_riddle_solution(model_solver.create_riddle_solution(solution))
+    def render_riddle(solution):
+        return render_riddle_solution(model.create_riddle_solution(solution))
+
+    solve(model, timeout=timeout, limit=limit,
+          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          render_solution=render_riddle)

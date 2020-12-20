@@ -40,19 +40,20 @@ class Undefined(_Singleton):
 INFINITY = Infinity()
 UNDEFINED = Undefined()
 
-Stats = collections.namedtuple(
-    "Stats", "count elapsed")
 
+class Stats:
+    def __init__(self, count=0, elapsed=0.0):
+        self.count = count
+        self.elapsed = elapsed
 
-SolveStats = collections.namedtuple(
-    "SolveStats", "count elapsed interrupt")
+    def __repr__(self):
+        return "{}(count={!r}, elapsed={!r})".format(type(self).__name__, self.count, self.elapsed)
 
 
 class Timer(object):
     def __init__(self):
-        self._t_elapsed = 0.0
         self._t_start = None
-        self._count = 0
+        self.stats = Stats(count=0, elapsed=0.0)
 
     def running(self):
         return self._t_start is not None
@@ -66,9 +67,9 @@ class Timer(object):
         if not self.running():
             raise RuntimeError("not started")
         t_elapsed = time.time() - self._t_start
-        self._t_elapsed += t_elapsed
+        self.stats.count += count
+        self.stats.elapsed += t_elapsed
         self._t_start = None
-        self._count += count
         return t_elapsed
 
     def count(self):
@@ -80,11 +81,6 @@ class Timer(object):
 
     def elapsed(self):
         if self.running():
-            return self._t_elapsed + (time.time() - self._t_start)
+            return self.stats.elapsed + (time.time() - self._t_start)
         else:
-            return self._t_elapsed
-
-    def stats(self):
-        return Stats(
-            count=self._count,
-            elapsed=self._t_elapsed)
+            return self.stats.elapsed
