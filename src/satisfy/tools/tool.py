@@ -43,9 +43,9 @@ from .demo_four_rings import (
     four_rings,
     four_rings_description,
 )
-# from .sat_tool import (
-#     sat_tool,
-# )
+from .sat_tool import (
+    sat_tool,
+)
 
 __all__ = [
     'main',
@@ -299,23 +299,22 @@ Solve the 4-rings problem:
         help='allows not unique variable values',
         **fr_unique_kwargs)
 
-#     sat_parser = subparsers.add_parser(
-#         "sat",
-#         description="""\
-# Solve a generic model described as SAT file
-# """,
-#         **common_args)
-#     sat_parser.set_defaults(
-#         function=sat_tool,
-#         function_args=["input_file"] + solve_args)
-# 
-#     sat_parser.add_argument(
-#         'input_file',
-#         type=argparse.FileType('r'),
-#         default=sys.stdin,
-#         help='SAT input file (defaults to STDIN)')
-# 
-#     for parser in knapsack_parser, sudoku_parser, graph_labeling_parser, ascii_map_coloring_parser:
+    sat_parser = subparsers.add_parser(
+        "sat",
+        description="""\
+Solve a generic model described as SAT file
+""",
+        **common_args)
+    sat_parser.set_defaults(
+        function=sat_tool,
+        function_args=["input_file"] + solve_args)
+
+    sat_parser.add_argument(
+        'input_file',
+        type=argparse.FileType('r'),
+        default=sys.stdin,
+        help='SAT input file (defaults to STDIN)')
+
     for parser in [knapsack_parser, graph_labeling_parser, ascii_map_coloring_parser, sudoku_parser]:
         parser.add_argument(
             "-i", "--input-file",
@@ -329,7 +328,7 @@ Solve the 4-rings problem:
 #                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
     solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser,
                      graph_labeling_parser, ascii_map_coloring_parser, queens_parser,
-                     sudoku_parser, four_rings_parser]
+                     sudoku_parser, four_rings_parser, sat_parser]
 
     for parser in solve_parsers:
         parser.add_argument(
