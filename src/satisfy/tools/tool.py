@@ -24,10 +24,10 @@ from .demo_knapsack import (
     knapsack,
     default_knapsack_source,
 )
-# from .demo_ascii_map_coloring import (
-#     ascii_map_coloring,
-#     default_ascii_map_coloring_source,
-# )
+from .demo_ascii_map_coloring import (
+    ascii_map_coloring,
+    default_ascii_map_coloring_source,
+)
 from .demo_nonogram import (
     nonogram,
     default_nonogram_source,
@@ -143,21 +143,21 @@ For instance:
         function=graph_labeling,
         function_args=["input_file", "labels"] + solve_args)
 
-#     ascii_map_coloring_parser = subparsers.add_parser(
-#         "ascii-map-coloring",
-#         description="""\
-# Solve a map_coloring problem.
-# 
-# The input file is a simple ascii map, for instance:
-# 
-# {example}
-# 
-# """.format(example=default_ascii_map_coloring_source()),
-#         **common_args)
-#     ascii_map_coloring_parser.set_defaults(
-#         function=ascii_map_coloring,
-#         function_args=["input_file", "colors"] + solve_args)
-# 
+    ascii_map_coloring_parser = subparsers.add_parser(
+        "ascii-map-coloring",
+        description="""\
+Solve a map_coloring problem.
+
+The input file is a simple ascii map, for instance:
+
+{example}
+
+""".format(example=default_ascii_map_coloring_source()),
+        **common_args)
+    ascii_map_coloring_parser.set_defaults(
+        function=ascii_map_coloring,
+        function_args=["input_file", "colors"] + solve_args)
+
     nonogram_parser = subparsers.add_parser(
         "nonogram",
         description="""\
@@ -194,12 +194,12 @@ For instance:
         default=['red', 'blue', 'green'],
         help="set node labels")
 
-#     ascii_map_coloring_parser.add_argument(
-#         "-C", "--colors",
-#         nargs='+',
-#         default=['red', 'blue', 'green', 'yellow'],
-#         help="set map colors")
-# 
+    ascii_map_coloring_parser.add_argument(
+        "-C", "--colors",
+        nargs='+',
+        default=['red', 'blue', 'green', 'yellow'],
+        help="set map colors")
+
 #     queens_parser = subparsers.add_parser(
 #         "queens",
 #         description="""\
@@ -316,7 +316,7 @@ Solve cryptarithms, for instance:
 #         help='SAT input file (defaults to STDIN)')
 # 
 #     for parser in knapsack_parser, sudoku_parser, graph_labeling_parser, ascii_map_coloring_parser:
-    for parser in [knapsack_parser, graph_labeling_parser]:
+    for parser in [knapsack_parser, graph_labeling_parser, ascii_map_coloring_parser]:
         parser.add_argument(
             "-i", "--input-file",
             metavar="F",
@@ -328,7 +328,7 @@ Solve cryptarithms, for instance:
 #                      graph_labeling_parser, ascii_map_coloring_parser,
 #                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
     solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser,
-                     graph_labeling_parser]
+                     graph_labeling_parser, ascii_map_coloring_parser]
 
     for parser in solve_parsers:
         parser.add_argument(

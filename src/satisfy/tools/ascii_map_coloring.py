@@ -3,14 +3,14 @@ import itertools
 import networkx as nx
 import termcolor
 
-from ..graph_labeling import GraphLabelingSolver
+from ..graph_labeling import GraphLabeling
 
 __all__ = [
-    'AsciiMapColoringSolver',
+    'AsciiMapColoring',
 ]
 
 
-class AsciiMapColoringSolver(GraphLabelingSolver):
+class AsciiMapColoring(GraphLabeling):
     def __init__(self, ascii_map, colors=('red', 'green', 'blue', 'yellow'), **args):
         if isinstance(ascii_map, str):
             ascii_map = ascii_map.split('\n')
@@ -82,9 +82,12 @@ class AsciiMapColoringSolver(GraphLabelingSolver):
                     graph.add_edge(gid0, gid1)
 
         self._groups = groups
-        if args.get('limit', None) is None:
-            args['limit'] = 1
         super().__init__(graph=graph, labels=colors, **args)
+
+    def solver(self, *, limit=None, **kwargs):
+        if limit is None:
+            limit = 1
+        return super().solver(limit=limit, **kwargs)
 
     @property
     def ascii_map(self):

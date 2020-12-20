@@ -1,7 +1,7 @@
-from .ascii_map_coloring import AsciiMapColoringSolver
+from .ascii_map_coloring import AsciiMapColoring
 
-from .demo_utils import (
-    iter_solutions,
+from .cli_utils import (
+    solve,
 )
 
 __all__ = [
@@ -61,7 +61,14 @@ No input file - using default data:
         with open(input_file, "r") as fh:
             data = fh.read()
 
-    model_solver = AsciiMapColoringSolver(data, colors, timeout=timeout, limit=limit)
-    for solution in iter_solutions(model_solver, show_model=show_model, show_stats=show_stats,
-                                   profile=profile, compact=compact):
-        print(model_solver.create_ascii_map(solution))
+    model = AsciiMapColoring(data, colors)
+
+    def render_map(solution):
+        out = model.create_ascii_map(solution)
+        if compact:
+            out = '\n' + out
+        return out
+
+    solve(model, timeout=timeout, limit=limit,
+          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          render_solution=render_map)
