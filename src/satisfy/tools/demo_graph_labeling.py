@@ -79,7 +79,7 @@ def default_graph_labeling_source():
     return DEFAULT_GRAPH_LABELING_SOURCE
 
 
-def graph_labeling(input_file, labels, timeout, limit, show_model, show_stats, profile, compact):
+def graph_labeling(input_file, labels, timeout, limit, show_model, show_stats, profile, show_mode):
     if input_file is None:
         source = default_graph_labeling_source()
         print("""\
@@ -99,5 +99,5 @@ No input file - using default data:
 
 
     solve(model, timeout=timeout, limit=limit,
-          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
           render_solution=render_graph)

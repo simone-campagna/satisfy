@@ -65,7 +65,7 @@ def render_sudoku_schema(schema):
     return '\n'.join(lines)
 
 
-def sudoku(input_file, timeout, limit, show_model, show_stats, profile, compact):
+def sudoku(input_file, timeout, limit, show_model, show_stats, profile, show_mode):
     if input_file is None:
         source = default_sudoku_source()
         print("""\
@@ -85,5 +85,5 @@ No input file - using default schema:
         return render_sudoku_schema(schema)
 
     solve(model, timeout=timeout, limit=limit,
-          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
           render_solution=render_solution)

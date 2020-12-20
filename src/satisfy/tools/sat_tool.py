@@ -26,10 +26,10 @@ __all__ = [
 #     print("{}{}".format(sol, msg))
 
 
-def sat_tool(input_file, timeout, limit, show_model, show_stats, profile, compact):
+def sat_tool(input_file, timeout, limit, show_model, show_stats, profile, show_mode):
     source = input_file.read()
     model = sat_compile(source)
     
     solve(model, timeout=timeout, limit=limit,
-          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact)
+          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode)
           #render_solution=render_solution)

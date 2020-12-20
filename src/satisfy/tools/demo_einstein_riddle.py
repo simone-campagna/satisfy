@@ -28,7 +28,7 @@ def render_riddle_solution(solution):
     return '\n'.join(lines)
 
 
-def einstein(timeout, limit, show_model, show_stats, profile, compact):
+def einstein(timeout, limit, show_model, show_stats, profile, show_mode):
     model = EinsteinRiddle()
     print(model.riddle())
 
@@ -36,5 +36,5 @@ def einstein(timeout, limit, show_model, show_stats, profile, compact):
         return render_riddle_solution(model.create_riddle_solution(solution))
 
     solve(model, timeout=timeout, limit=limit,
-          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
           render_solution=render_riddle)

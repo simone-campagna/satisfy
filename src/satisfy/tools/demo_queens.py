@@ -36,12 +36,12 @@ def render_queens_board(board_size, board):
     return '\n'.join(lines)
 
 
-def queens(board_size, timeout, limit, show_model, show_stats, profile, compact):
+def queens(board_size, timeout, limit, show_model, show_stats, profile, show_mode):
     model = Queens(board_size)
 
     def render_queens(solution):
         return render_queens_board(board_size, model.create_board(solution))
 
     solve(model, timeout=timeout, limit=limit,
-          show_model=show_model, show_stats=show_stats, profile=profile, compact=compact,
+          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
           render_solution=render_queens)

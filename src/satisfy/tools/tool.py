@@ -6,6 +6,8 @@ import argcomplete
 
 from ..utils import INFINITY
 
+from .cli_utils import ShowMode
+
 from .demo_cryptarithm import (
     cryptarithm,
     default_cryptarithm_system,
@@ -88,7 +90,7 @@ Satisfy tool - show some examples.
 """,
         **common_args)
 
-    solve_args = ["timeout", "limit", "show_model", "show_stats", "profile", "compact"]
+    solve_args = ["timeout", "limit", "show_model", "show_stats", "profile", "show_mode"]
 
     subparsers = top_level_parser.add_subparsers()
     top_level_parser.set_defaults(
@@ -213,7 +215,7 @@ attacking queens.
         function_args=["board_size"] + solve_args)
 
     queens_parser.add_argument(
-        "-b", "--board-size",
+        "-B", "--board-size",
         metavar="S",
         default=8,
         type=int,
@@ -394,19 +396,23 @@ Solve a generic model described as SAT file
             action="store_false", default=False,
             help="disable profiling")
 
-        compact_group = parser.add_mutually_exclusive_group()
-        compact_group.add_argument(
+        show_mode_group = parser.add_argument_group("show solution mode")
+        show_mode_kwargs = {'dest': 'show_mode', 'default': ShowMode.DEFAULT}
+        show_mode_group.add_argument(
             '-c', '--compact',
-            dest='compact',
-            default=False,
-            action='store_true',
-            help='compact output')
-        compact_group.add_argument(
-            '-f', '--formatted',
-            dest='compact',
-            default=False,
-            action='store_false',
-            help='formatted output')
+            action='store_const', const=ShowMode.COMPACT,
+            help='compact output',
+            **show_mode_kwargs)
+        show_mode_group.add_argument(
+            '-b', '--brief',
+            action='store_const', const=ShowMode.BRIEF,
+            help='minimal output',
+            **show_mode_kwargs)
+        show_mode_group.add_argument(
+            '-q', '--quiet',
+            action='store_const', const=ShowMode.QUIET,
+            help='do not show solutions',
+            **show_mode_kwargs)
 
     argcomplete.autocomplete(top_level_parser)
     namespace = top_level_parser.parse_args()
