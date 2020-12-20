@@ -6,10 +6,10 @@ import argcomplete
 
 from ..utils import INFINITY
 
-# from .demo_cryptarithm import (
-#     cryptarithm,
-#     default_cryptarithm_system,
-# )
+from .demo_cryptarithm import (
+    cryptarithm,
+    default_cryptarithm_system,
+)
 # from .einstein_riddle import (
 #     EinsteinRiddleSolver,
 # )
@@ -229,40 +229,40 @@ For instance:
 #         function=einstein,
 #         function_args=[] + solve_args)
 # 
-#     cryptarithm_parser = subparsers.add_parser(
-#         "cryptarithm",
-#         description="""\
-# Solve cryptarithms, for instance:
-# 
-# {example}
-# 
-# """.format(example=' '.join(default_cryptarithm_system())),
-#         **common_args)
-#     cryptarithm_parser.set_defaults(
-#         function=cryptarithm,
-#         function_args=["system", "avoid_leading_zeros"] + solve_args)
-# 
-#     cryptarithm_parser.add_argument(
-#         "-z", "--avoid-leading-zeros",
-#         type=type_on_off,
-#         nargs='?', const='on',
-#         default=True,
-#         help="avoid leading zeros in numbers")
-# 
-#     input_group = cryptarithm_parser.add_mutually_exclusive_group()
-#     input_group.add_argument(
-#         "-i", "--input-file",
-#         dest="system",
-#         metavar="F",
-#         default=None,
-#         type=json_file,
-#         help="input JSON filename")
-#     input_group.add_argument(
-#         "-e", "--equation",
-#         dest="system",
-#         action="append",
-#         default=[],
-#         help="cryptarithm equation")
+    cryptarithm_parser = subparsers.add_parser(
+        "cryptarithm",
+        description="""\
+Solve cryptarithms, for instance:
+
+{example}
+
+""".format(example=' '.join(default_cryptarithm_system())),
+        **common_args)
+    cryptarithm_parser.set_defaults(
+        function=cryptarithm,
+        function_args=["system", "avoid_leading_zeros"] + solve_args)
+
+    cryptarithm_parser.add_argument(
+        "-z", "--avoid-leading-zeros",
+        type=type_on_off,
+        nargs='?', const='on',
+        default=True,
+        help="avoid leading zeros in numbers")
+
+    input_group = cryptarithm_parser.add_mutually_exclusive_group()
+    input_group.add_argument(
+        "-i", "--input-file",
+        dest="system",
+        metavar="F",
+        default=None,
+        type=json_file,
+        help="input JSON filename")
+    input_group.add_argument(
+        "-e", "--equation",
+        dest="system",
+        action="append",
+        default=[],
+        help="cryptarithm equation")
 # 
 #     four_rings_parser = subparsers.add_parser(
 #         "4-rings",
@@ -327,7 +327,7 @@ For instance:
 #     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
 #                      graph_labeling_parser, ascii_map_coloring_parser,
 #                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
-    solve_parsers = [knapsack_parser, nonogram_parser]
+    solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser]
 
     for parser in solve_parsers:
         parser.add_argument(
