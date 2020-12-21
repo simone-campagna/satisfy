@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import itertools
 import logging
 import operator
 
@@ -7,6 +8,7 @@ import ply.lex as lex
 import ply.yacc as yacc
  
 from .model import Model
+from .solver import Solver, SelectVar, SelectValue
 from .objective import Maximize, Minimize
 from . import expression as _expr
 
@@ -72,6 +74,10 @@ class Sat(Model):
         super().__init__(**kwargs)
         self.domains = {}
         self.vars = {}
+        self.__select_var = SelectVar.max_bound
+        self.__select_value = SelectValue.min_value
+        self.__limit = None
+        self.__timeout = None
 
     def define_sat_domain(self, p, name, domain):
         # print("DEFINE DOMAIN {} := {!r}".format(name, domain))
@@ -100,11 +106,42 @@ class Sat(Model):
     def add_sat_objective(self, p, objective_name, expression):
         self.add_objective(OBJECTIVE[objective_name](expression))
 
+    def set_sat_option(self, p, option_name, option_value):
+        if option_name == 'select_var':
+            if not hasattr(SelectVar, option_value):
+                raise SatSyntaxError("illegal SelectVar {!r}".format(option_value))
+            self.__select_var = getattr(SelectVar, option_value)
+        elif option_name == 'select_value':
+            if not hasattr(SelectValue, option_value):
+                raise SatSyntaxError("illegal SelectValue {!r}".format(option_value))
+            self.__select_option_value = getattr(SelectValue, option_value)
+        elif option_name == 'limit':
+            if not isinstance(option_value, int):
+                raise SatSyntaxError("illegal limit {!r} of type {}".format(option_value, type(option_value).__name__))
+            self.__limit = option_value
+        elif option_name == 'timeout':
+            if not isinstance(option_value, (int, float)):
+                raise SatSyntaxError("illegal limit {!r} of type {}".format(option_value, type(option_value).__name__))
+            self.__timeout = option_value
+        else:
+            raise SatSyntaxError("unknown option {!r}".format(option_name))
+
+    def solver(self, **kwargs):
+        args = dict(
+            limit=kwargs.pop('limit', self.__limit),
+            timeout=kwargs.pop('timeout', self.__timeout),
+            select_var=kwargs.pop('select_var', self.__select_var),
+            select_value=kwargs.pop('select_value', self.__select_value),
+            **kwargs
+        )
+        return Solver(**args)
+
 
 class SatLexer:
     # List of token names.   This is always required
     tokens = (
-       'NUMBER',
+       'INTEGER',
+       'FLOATING_POINT',
        'PLUS',
        'MINUS',
        'TIMES',
@@ -125,12 +162,13 @@ class SatLexer:
        'R_SQUARE_BRACKET',
        'COMMA',
        'COLON',
-       'SYMBOL',
        'DEF_DOMAIN',
        'DEF_VAR',
        'NEWLINE',
        'OBJECTIVE',
        'ALL_DIFFERENT_CONSTRAINT',
+       'DEF_OPTION',
+       'SYMBOL',
     )
     
     # Regular expression rules for simple tokens
@@ -158,6 +196,10 @@ class SatLexer:
     t_DEF_DOMAIN               = r'\:\='
     t_DEF_VAR                  = r'\:\:'
 
+    def t_DEF_OPTION(self, t):
+        r'option'
+        return t
+
     def t_OBJECTIVE(self, t):
         r'minimize|maximize'
         return t
@@ -166,9 +208,14 @@ class SatLexer:
         r'all_different'
         return t
 
-    def t_NUMBER(self, t):
-        r'\d+'
+    def t_INTEGER(self, t):
+        r'\d+(?!\.)'
         t.value = int(t.value)    
+        return t
+    
+    def t_FLOATING_POINT(self, t):
+        r'\d*\.\d+|\d+\.\d*'
+        t.value = float(t.value)    
         return t
     
     def t_NEWLINE(self, t):
@@ -178,6 +225,8 @@ class SatLexer:
     
     def t_COMMENT(self, t):
         r'\#.*\n*'
+        v = t.value.rstrip('\n')
+        t.lexer.lineno += len(t.value) - len(v)
         pass
 
     t_ignore  = ' \t'
@@ -219,23 +268,27 @@ class SatParser:
         'empty :'
         pass
 
-    def p_code_single_line(self, p):
-        'code : code_line'
-        p[0] = p[1]
+    # def p_code_single_line(self, p):
+    #     'code : code_line'
+    #     p[0] = p[1]
 
     def p_code_multiple_lines(self, p):
         '''code : code_line NEWLINE code
-                | code_line NEWLINE empty'''
+                | code_line NEWLINE empty
+        '''
         if p[3]:
             p[0] = p[1] +  p[3]
         else:
             p[0] = p[1]
 
     def p_code_line(self, p):
-        '''code_line : domain_definition
+        '''code_line :
+                     | option_definition
+                     | domain_definition
                      | var_definition
                      | constraint_definition
-                     | objective_definition'''
+                     | objective_definition
+        '''
         p[0] = [p[1]]
 
     ### DOMAIN DEFINITION
@@ -257,25 +310,42 @@ class SatParser:
         p[0] = domain(p[1], p[3])
 
     def p_domain_term_number(self, p):
-        'domain_term : NUMBER'
+        'domain_term : INTEGER'
         p[0] = p[1]
 
     def p_domain_term_range(self, p):
-        'domain_term : NUMBER COLON NUMBER'
+        '''domain_term : INTEGER COLON INTEGER'''
         p[0] = list(range(p[1], p[3] + 1))
+
+    def p_domain_term_range_stride(self, p):
+        '''domain_term : INTEGER COLON INTEGER COLON INTEGER'''
+        p[0] = list(range(p[1], p[3] + 1, p[5]))
+
+    ### OPTIONS
+    def p_set_option(self, p):
+        '''option_definition : DEF_OPTION LPAREN option_name COMMA option_value RPAREN'''
+        self.sat.set_sat_option(p, p[3], p[5])
+
+    def p_option_name(self, p):
+        '''option_name : SYMBOL'''
+        p[0] = p[1]
+
+    def p_option_value(self, p):
+        '''option_value : SYMBOL
+                        | INTEGER
+                        | FLOATING_POINT
+        '''
+        p[0] = p[1]
 
     ### VAR DEFINITION
     def p_domain_value(self, p):
         '''domain_value : domain
-                        | SYMBOL'''
+        '''
         p[0] = p[1]
 
     def p_var_definition_single(self, p):
-        'var_definition : SYMBOL DEF_VAR domain_value'
-        p[0] = self.sat.define_sat_vars(p, p[3], *p[1])
-
-    def p_var_definition_multiple(self, p):
-        'var_definition : var_list DEF_VAR SYMBOL'
+        '''var_definition : var_list DEF_VAR var_domain
+        '''
         p[0] = self.sat.define_sat_vars(p, p[3], *p[1])
 
     def p_var_list_single(self, p):
@@ -283,8 +353,14 @@ class SatParser:
         p[0] = [p[1]]
 
     def p_var_list_multiple(self, p):
-        '''var_list : var_list COMMA var_list'''
-        p[0] = p[1] + p[3]
+        '''var_list : var_list COMMA SYMBOL'''
+        p[0] = p[1] + [p[3]]
+
+    def p_var_domain(self, p):
+        '''var_domain : SYMBOL
+                      | domain_value
+        '''
+        p[0] = p[1]
 
     ### CONSTRAINT
     def p_constraint_definition(self, p):
@@ -310,7 +386,7 @@ class SatParser:
                       | expr_unop
                       | paren_expression
                       | SYMBOL
-                      | NUMBER'''
+                      | INTEGER'''
         p[0] = make_value(self.sat, p[1])
 
     def p_paren_expression(self, p):

@@ -50,106 +50,196 @@ OptimizationResult = collections.namedtuple(  # pylint: disable=invalid-name
     "is_optimal state count solution")
 
 
-class SelectVar:
-    @classmethod
-    def random(cls, bound_var_names, unbound_var_names, model_info):
+class SelectNamespace:
+    def __init__(self):
+        self.__names = []
+
+    def __entries__(self):
+        yield from self.__names
+
+    def __register__(self, name):
+        def register_decorator(cls):
+            self.__dict__[name] = cls(name)
+            self.__names.append(name)
+        return register_decorator
+
+
+class SelectVarNamespace(SelectNamespace):
+    pass
+
+
+class SelectValueNamespace(SelectNamespace):
+    pass
+
+
+SelectVar = SelectVarNamespace()
+SelectValue = SelectValueNamespace()
+
+
+class Selector(abc.ABC):
+    def __init__(self, name):
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
+
+class ValueSelector(Selector):
+    def init(self, domain):
+        pass
+ 
+    @abc.abstractmethod
+    def __call__(self, var_name, substitution, domain):
+        raise NotImplementedError()
+    
+    def __repr__(self):
+        return 'SelectValue.{}'.format(self.name)
+
+
+@SelectValue.__register__('in_order')
+class InOrderValueSelector(ValueSelector):
+    def __call__(self, var_name, substitution, domain):
+        value = domain.pop(0)
+        return value, domain
+
+
+@SelectValue.__register__('random')
+class RandomValueSelector(ValueSelector):
+    def init(self, domain):
+        random.shuffle(domain)
+
+    def __call__(self, var_name, substitution, domain):
+        value = domain.pop(-1)
+        return value, domain
+
+
+@SelectValue.__register__('min_value')
+class MinValueSelector(ValueSelector):
+    def init(self, domain):
+        domain.sort(reverse=True)
+
+    def __call__(self, var_name, substitution, domain):
+        value = domain.pop(-1)
+        return value, domain
+
+
+@SelectValue.__register__('max_value')
+class MaxValueSelector(ValueSelector):
+    def init(self, domain):
+        domain.sort()
+
+    def __call__(self, var_name, substitution, domain):
+        value = domain.pop(-1)
+        return value, domain
+
+
+class VarSelector(Selector):
+    def init(self, bound_var_names, unbound_var_names, model_info):
+        pass
+
+    @abc.abstractmethod
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
+        raise NotImplementedError()
+    
+    def __repr__(self):
+        return 'SelectVar.{}'.format(self.name)
+
+    
+@SelectVar.__register__('in_order')
+class InOrderVarSelector(VarSelector):
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
+        var_name = unbound_var_names.pop(0)
+        return var_name, unbound_var_names
+
+
+@SelectVar.__register__('random')
+class RandomVarSelector(VarSelector):
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
         idx = random.randrange(0, len(unbound_var_names))
         var_name = unbound_var_names.pop(idx)
         return var_name, unbound_var_names
 
-    @classmethod
-    def in_order(cls, bound_var_names, unbound_var_names, model_info):
+
+class BoundVarSelector(VarSelector):
+    def init(self, bound_var_names, unbound_var_names, model_info):
+        var_map = model_info.var_map
+        unbound_var_names.sort(key=lambda v: minmax(var_map[v].values()))
+
+
+@SelectVar.__register__('min_bound')
+class MinBoundSelector(BoundVarSelector):
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
         var_name = unbound_var_names.pop(0)
         return var_name, unbound_var_names
 
-    @classmethod
-    def _sort_bound(cls, bound_var_names, unbound_var_names, model_info, minmax):
-        var_map = model_info.var_map
-        unbound_var_names.sort(key=lambda v: minmax(var_map[v].values()))
-    
-    @classmethod
-    def min_bound(cls, bound_var_names, unbound_var_names, model_info):
-        if len(bound_var_names) == 0:
-            cls._sort_bound(bound_var_names, unbound_var_names, model_info, min)
-        var_name = unbound_var_names.pop(0)
+
+@SelectVar.__register__('max_bound')
+class MaxBoundSelector(BoundVarSelector):
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
+        var_name = unbound_var_names.pop(-1)
         return var_name, unbound_var_names
-    
-    @classmethod
-    def max_bound(cls, bound_var_names, unbound_var_names, model_info):
-        if len(bound_var_names) == 0:
-            cls._sort_bound(bound_var_names, unbound_var_names, model_info, max)
-        var_name = unbound_var_names.pop(0)
-        return var_name, unbound_var_names
-    
-    @classmethod
-    def _sort_domain(cls, bound_var_names, unbound_var_names, model_info):
+
+
+class DomainVarSelector(VarSelector):
+    def init(self, bound_var_names, unbound_var_names, model_info):
+        self.sort_vars(var_domains, bound_var_names, unbound_var_names, model_info)
+
+    def sort_vars(self, bound_var_names, unbound_var_names, model_info):
         if bound_var_names:
             var_domains = model_info.domains
         else:
             var_domains = model_info.original_domains
         unbound_var_names.sort(key=lambda v: len(var_domains[v]))
-    
-    @classmethod
-    def min_domain(cls, bound_var_names, unbound_var_names, model_info):
-        if len(bound_var_names) < 1:
-            cls._sort_domain(bound_var_names, unbound_var_names, model_info)
+
+
+@SelectVar.__register__('min_domain')
+class MinDomainVarSelector(DomainVarSelector):
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
+        self.sort_vars(bound_var_names, unbound_var_names, model_info)
         var_name = unbound_var_names.pop(0)
         return var_name, unbound_var_names
-    
-    @classmethod
-    def max_domain(cls, bound_var_names, unbound_var_names, model_info):
-        if len(bound_var_names) < 1:
-            cls._sort_domain(bound_var_names, unbound_var_names, model_info)
+
+
+@SelectVar.__register__('max_domain')
+class MaxDomainVarSelector(DomainVarSelector):
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
+        self.sort_vars(bound_var_names, unbound_var_names, model_info)
         var_name = unbound_var_names.pop(-1)
         return var_name, unbound_var_names
-    
-    @classmethod
-    def min_domain_depth(cls, depth):
-        def min_domain(bound_var_names, unbound_var_names, model_info):
-            if len(bound_var_names) <= depth:
-                cls._sort_domain(bound_var_names, unbound_var_names, model_info)
-            var_name = unbound_var_names.pop(0)
-            return var_name, unbound_var_names
-        return min_domain
-            
-    @classmethod
-    def max_domain_depth(cls, depth):
-        def max_domain(bound_var_names, unbound_var_names, model_info):
-            if len(bound_var_names) <= depth:
-                cls._sort_domain(bound_var_names, unbound_var_names, model_info)
-            var_name = unbound_var_names.pop(-1)
-            return var_name, unbound_var_names
-        return max_domain
-            
-    @classmethod
-    def group_prio(cls, bound_var_names, unbound_var_names, model_info):
-        if not bound_var_names:
-            var_group_prio = model_info.var_group_prio
-            var_bounds = model_info.var_bounds
-            var_domains = model_info.initial_domains
-            unbound_var_names.sort(key=lambda v: (var_group_prio[v], var_bounds[v], len(var_domains[v])))
+
+
+@SelectVar.__register__('group_prio')
+class MaxDomainVarSelector(VarSelector):
+    def init(self, bound_var_names, unbound_var_names, model_info):
+        var_group_prio = model_info.var_group_prio
+        var_bounds = model_info.var_bounds
+        var_domains = model_info.initial_domains
+        unbound_var_names.sort(key=lambda v: (var_group_prio[v], var_bounds[v], len(var_domains[v])))
+
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
         var_name = unbound_var_names.pop(0)
         return var_name, unbound_var_names
 
 
-class SelectValue:
-    @classmethod
-    def random(cls, var_name, substitution, reduced_domain):
-        value = random.sample(reduced_domain, 1)[0]
-        reduced_domain.discard(value)
-        return value, reduced_domain
+@SelectVar.__register__('min_alphanumeric')
+class MinAlphanumericVarSelector(VarSelector):
+    def init(self, bound_var_names, unbound_var_names, model_info):
+        unbound_var_names.sort(reverse=True)
 
-    @classmethod
-    def min_value(cls, var_name, substitution, reduced_domain):
-        value = min(reduced_domain)
-        reduced_domain.discard(value)
-        return value, reduced_domain
-    
-    @classmethod
-    def max_value(cls, var_name, substitution, reduced_domain):
-        value = max(reduced_domain)
-        reduced_domain.discard(value)
-        return value, reduced_domain
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
+        var_name = unbound_var_names.pop(-1)
+        return var_name, unbound_var_names
+
+
+@SelectVar.__register__('max_alphanumeric')
+class MaxAlphanumericVarSelector(VarSelector):
+    def init(self, domain):
+        unbound_var_names.sort()
+
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
+        var_name = unbound_var_names.pop(-1)
+        return var_name, unbound_var_names
 
 
 class Solver:
@@ -279,6 +369,8 @@ class ModelSolver:
         compile_constraints = solver.compile_constraints
         reduce_max_depth = solver.reduce_max_depth
         self._state = SolverState()
+        select_var = solver.select_var
+        select_value = solver.select_value
 
         # 0. objectives:
         objective_functions = []
@@ -290,12 +382,15 @@ class ModelSolver:
 
         # 1. internal data structures:
         variables = model.variables()
-        original_domains = {
-            var_name: list(var_info.domain) for var_name, var_info in variables.items() if var_info.domain is not None
-        }
-        initial_domains = {
-            var_name: list(var_info.domain) for var_name, var_info in variables.items() if var_info.domain is not None
-        }
+        original_domains = {}
+        initial_domains = {}
+        for var_name, var_info in variables.items():
+            if var_info.domain is not None:
+                original_domains[var_name] = var_info.domain
+                initial_domain = list(var_info.domain)
+                select_value.init(initial_domain)
+                initial_domains[var_name] = initial_domain
+
         var_names = list(initial_domains)
         var_names_set = set(var_names)
         var_constraints = {var_name: [] for var_name in var_names}
@@ -452,15 +547,15 @@ class ModelSolver:
                 # bound_var_set = set(bound_var_names)
                 forbidden_values = {value for vname, value in substitution.items() if vname in var_ad[var_name]}
 
-                reduced_domain = set(initial_domains[var_name]).difference(forbidden_values)
+                reduced_domain = [value for value in initial_domains[var_name] if value not in forbidden_values]
                 for constraint in var_constraints[var_name]:
                     if constraint.vars() <= bound_var_names:
                         c_fun = constraint.evaluate
-                        nr_dom = set()
+                        nr_dom = []
                         for value in reduced_domain:
                             substitution[var_name] = value
                             if c_fun(substitution):
-                                nr_dom.add(value)
+                                nr_dom.append(value)
                         reduced_domain = nr_dom
                         if not reduced_domain:
                             break

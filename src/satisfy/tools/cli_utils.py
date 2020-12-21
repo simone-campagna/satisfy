@@ -40,6 +40,10 @@ def print_model(model):
         # for c_index, objective_function in enumerate(model.objective_functions()):
         #     print(" {:4d}) {}".format(c_index, objective_function))
         # print()
+    # print()
+    # print("=== model options: ===")
+    # print("  select_var:   {}".format(model.select_var.name))
+    # print("  select_value: {}".format(model.select_value.name))
 
 
 def print_solve_stats(state):
@@ -129,7 +133,12 @@ def solve(model, timeout, limit, profile=False, show_stats=False, show_model=Fal
     if show_model:
         print_model(model)
 
-    with model.solve(timeout=timeout, limit=limit) as model_solver:
+    kwargs = {}
+    if limit is not None:
+        kwargs['limit'] = limit
+    if timeout is not None:
+        kwargs['timeout'] = timeout
+    with model.solve(**kwargs) as model_solver:
         state = model_solver.state
         stats = state.stats
         with profiling(profile):
