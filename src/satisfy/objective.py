@@ -29,7 +29,9 @@ class ObjectiveFunction:
         return self._expression.evaluate(substitution)
 
     def __repr__(self):
-        return "{}({!r})".format(type(self).__name__, self._expression)
+        lst = [repr(self._model), str(self._expression)]
+        lst.extend(str(constraint) for constraint in self._constraints)
+        return "{}({})".format(type(self).__name__, ', '.join(lst))
 
 
 class Objective(abc.ABC):
@@ -45,6 +47,9 @@ class Objective(abc.ABC):
     @abc.abstractmethod
     def build(self, model):
         raise NotImplementedError()
+
+    def __repr__(self):
+        return "{}({})".format(type(self).__name__, self._expression)
 
 
 class MinMaxConstraint(ExpressionConstraint):

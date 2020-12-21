@@ -23,12 +23,23 @@ class ShowMode(enum.Enum):
 
 
 def print_model(model):
-    print("\n=== model variables: ===")
+    print("=== model variables: ===")
     for var_index, (var_name, var_info) in enumerate(model.variables().items()):
         print(" {:4d}) {!r} domain: {}".format(var_index, var_name, var_info.domain))
-    print("\n=== model constraints: ===")
+    print()
+    print("=== model constraints: ===")
     for c_index, constraint in enumerate(model.constraints()):
         print(" {:4d}) {}".format(c_index, constraint))
+    print()
+    if model.has_objectives():
+        print("=== model objectives: ===")
+        for c_index, objective in enumerate(model.objectives()):
+            print(" {:4d}) {}".format(c_index, objective))
+        print()
+        # print("=== model objective functions: ===")
+        # for c_index, objective_function in enumerate(model.objective_functions()):
+        #     print(" {:4d}) {}".format(c_index, objective_function))
+        # print()
 
 
 def print_solve_stats(state):
@@ -49,7 +60,7 @@ def print_solve_stats(state):
         State.INTERRUPT_LIMIT: 'limit',
     }
     state_name = state_name_tr.get(state.state, state.state.name)
-    print("\n" + fmt.format(suffix=suffix, stats=stats, state=state_name))
+    print(fmt.format(suffix=suffix, stats=stats, state=state_name))
 
 
 def render_solution(solution):

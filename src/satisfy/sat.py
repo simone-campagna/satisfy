@@ -89,12 +89,13 @@ class Sat(Model):
             variables.append(var)
         return variables
 
-    def add_sat_constraint(self, p, constraint_type, constraint):
-        if constraint_type == 'all_different_constraint':
-            self.add_all_different_constraint([self.vars[x] for x in constraint])
-        else:
-            self.add_constraint(constraint)
+    def add_sat_constraint(self, p, constraint):
+        self.add_constraint(constraint)
         return constraint
+
+    def add_sat_all_different_constraint(self, p, constraint_type, var_list):
+        self.add_all_different_constraint([self.vars[var] for var in var_list])
+        return var_list
 
     def add_sat_objective(self, p, objective_name, expression):
         self.add_objective(OBJECTIVE[objective_name](expression))
@@ -129,7 +130,6 @@ class SatLexer:
        'DEF_VAR',
        'NEWLINE',
        'OBJECTIVE',
-       'CONSTRAINT',
        'ALL_DIFFERENT_CONSTRAINT',
     )
     
@@ -162,12 +162,8 @@ class SatLexer:
         r'minimize|maximize'
         return t
 
-    def t_CONSTRAINT(self, t):
-        r'constraint'
-        return t
-
     def t_ALL_DIFFERENT_CONSTRAINT(self, t):
-        r'all_different_constraint'
+        r'all_different'
         return t
 
     def t_NUMBER(self, t):
@@ -292,12 +288,12 @@ class SatParser:
 
     ### CONSTRAINT
     def p_constraint_definition(self, p):
-        '''constraint_definition : CONSTRAINT LPAREN expression RPAREN'''
-        p[0] = self.sat.add_sat_constraint(p, p[1], p[3])
+        '''constraint_definition : expression'''
+        p[0] = self.sat.add_sat_constraint(p, p[1])
 
     def p_all_different_constraint_definition(self, p):
         '''constraint_definition : ALL_DIFFERENT_CONSTRAINT LPAREN var_list RPAREN'''
-        p[0] = self.sat.add_sat_constraint(p, p[1], p[3])
+        p[0] = self.sat.add_sat_all_different_constraint(p, p[1], p[3])
 
     precedence = (
         ('nonassoc', 'LE', 'LT', 'GE', 'GT', 'EQ', 'NE'),

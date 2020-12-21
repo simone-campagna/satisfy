@@ -286,6 +286,7 @@ class ModelSolver:
         for objective_function in model.objective_functions():
             objective_constraints = list(objective_function.constraints)
             additional_constraints.extend(objective_constraints)
+            objective_functions.append(objective_function)
 
         # 1. internal data structures:
         variables = model.variables()
