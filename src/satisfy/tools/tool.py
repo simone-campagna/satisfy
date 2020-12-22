@@ -87,10 +87,17 @@ Satisfy tool - show some examples.
   are substituted with letters (for instance 'AA3*55==6CAB')
 * nonogram: solve nonograms
 * 4-rings: solve the 4 rings problem
+* sat: run the SAT solver; SAT is a mini-language to express model
+  variables, constraints and objectives
+
+The command has bash autocompletion; to enable it run this command:
+
+  $ eval "$(register-python-argcomplete satisfy)"
+
 """,
         **common_args)
 
-    solve_args = ["timeout", "limit", "show_model", "show_stats", "profile", "show_mode"]
+    solve_args = ["timeout", "limit", "show_model", "show_stats", "profile", "show_mode", "output_file"]
 
     subparsers = top_level_parser.add_subparsers()
     top_level_parser.set_defaults(
@@ -478,6 +485,17 @@ The SAT syntax is simple; for instance:
             action='store_const', const=ShowMode.QUIET,
             help='do not show solutions',
             **show_mode_kwargs)
+        show_mode_group.add_argument(
+            '-j', '--json',
+            action='store_const', const=ShowMode.JSON,
+            help='JSON output',
+            **show_mode_kwargs)
+
+        parser.add_argument(
+            '-o', '--output-file',
+            default=sys.stdout,
+            type=argparse.FileType('w'),
+            help='output filename')
 
     argcomplete.autocomplete(top_level_parser)
     namespace = top_level_parser.parse_args()

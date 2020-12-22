@@ -26,7 +26,7 @@ class GraphLabeling(Model):
             **kwargs
         )
 
-    def create_node_labels(self, solution):
+    def transform_solution(self, solution):
         variables = self._gl_variables
         labels = self._labels
         node_labels = {}

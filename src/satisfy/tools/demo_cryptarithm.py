@@ -44,7 +44,7 @@ def render_cryptarithm_solution(solution, system):
     return '\n'.join(lines)
     
 
-def cryptarithm(system, avoid_leading_zeros, timeout, limit, show_model, show_stats, profile, show_mode):
+def cryptarithm(system, avoid_leading_zeros, timeout, limit, show_model, show_stats, profile, show_mode, output_file):
     if not system:
         system = default_cryptarithm_system()
         print("No input source - using default cryptarithm example:")
@@ -57,4 +57,4 @@ def cryptarithm(system, avoid_leading_zeros, timeout, limit, show_model, show_st
 
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
-          render_solution=render_cryptarithm)
+          output_file=output_file, render_solution=render_cryptarithm)

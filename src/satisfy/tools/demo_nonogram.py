@@ -66,7 +66,7 @@ def pixmap_to_image(pixmap, zero=ZERO, one=ONE):
     return '\n'.join(''.join(line) for line in image)
 
 
-def nonogram(input_file, input_image, timeout, limit, show_model, show_stats, profile, show_mode):
+def nonogram(input_file, input_image, timeout, limit, show_model, show_stats, profile, show_mode, output_file):
     if input_file is None:
         if input_image:
             nonogram = image_to_nonogram(input_image.read())
@@ -88,4 +88,4 @@ No input file - using default nonogram:
         
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
-          render_solution=render_nonogram)
+          output_file=output_file, render_solution=render_nonogram)

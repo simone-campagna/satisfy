@@ -173,3 +173,6 @@ class Model(object):
 
     def solve(self, **kwargs):
         return self.solver(**kwargs)(self)
+
+    def transform_solution(self, solution):
+        return solution

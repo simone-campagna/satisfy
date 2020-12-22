@@ -95,6 +95,7 @@ class Cryptarithm(Model):
             select_value=kwargs.pop('select_value', SelectValue.max_value),
             **kwargs
         )
+
     @property
     def system(self):
         return self._system

@@ -57,10 +57,14 @@ class SelectNamespace:
     def __entries__(self):
         yield from self.__names
 
-    def __register__(self, name):
+    def __register__(self, name, *aliases):
         def register_decorator(cls):
-            self.__dict__[name] = cls(name)
-            self.__names.append(name)
+            for key in itertools.chain([name], aliases):
+                if key in self.__names:
+                    raise ValueError("{}: redefined {}".format(type(self).__name__, key))
+                self.__dict__[key] = cls(key)
+                self.__names.append(key)
+            return cls
         return register_decorator
 
 
@@ -161,24 +165,71 @@ class RandomVarSelector(VarSelector):
         return var_name, unbound_var_names
 
 
+def iterator_len(it):
+    count = 0
+    for dummy in it:
+        count += 1
+    return count
+
+
 class BoundVarSelector(VarSelector):
     def init(self, bound_var_names, unbound_var_names, model_info):
         var_map = model_info.var_map
-        unbound_var_names.sort(key=lambda v: minmax(var_map[v].values()))
+        key_function = self.__class__.__key_function__
+        reverse = self.__reverse__
+        unbound_var_names.sort(key=lambda v: key_function(var_map[v].values()), reverse=reverse)
 
-
-@SelectVar.__register__('min_bound')
-class MinBoundSelector(BoundVarSelector):
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        var_name = unbound_var_names.pop(0)
-        return var_name, unbound_var_names
-
-
-@SelectVar.__register__('max_bound')
-class MaxBoundSelector(BoundVarSelector):
     def __call__(self, bound_var_names, unbound_var_names, model_info):
         var_name = unbound_var_names.pop(-1)
         return var_name, unbound_var_names
+
+
+@SelectVar.__register__('min_boundmin')
+class Min_BoundMinSelector(BoundVarSelector):
+    __key_function__ = min
+    __reverse__ = True
+
+
+@SelectVar.__register__('min_boundmax', 'min_bound')
+class Min_BoundMaxSelector(BoundVarSelector):
+    __key_function__ = max
+    __reverse__ = True
+
+
+@SelectVar.__register__('min_boundsum')
+class Min_BoundSumSelector(BoundVarSelector):
+    __key_function__ = sum
+    __reverse__ = True
+
+
+@SelectVar.__register__('min_boundlen')
+class Min_BoundLenSelector(BoundVarSelector):
+    __key_function__ = iterator_len
+    __reverse__ = True
+
+
+@SelectVar.__register__('max_boundmin', 'max_bound')
+class Max_BoundMinSelector(BoundVarSelector):
+    __key_function__ = min
+    __reverse__ = False
+
+
+@SelectVar.__register__('max_boundmax')
+class Max_BoundMaxSelector(BoundVarSelector):
+    __key_function__ = max
+    __reverse__ = False
+
+
+@SelectVar.__register__('max_boundsum')
+class Max_BoundSumSelector(BoundVarSelector):
+    __key_function__ = sum
+    __reverse__ = False
+
+
+@SelectVar.__register__('max_boundlen')
+class Max_BoundLenSelector(BoundVarSelector):
+    __key_function__ = iterator_len
+    __reverse__ = False
 
 
 class DomainVarSelector(VarSelector):
@@ -244,7 +295,7 @@ class MaxAlphanumericVarSelector(VarSelector):
 
 class Solver:
     def __init__(self,
-                 select_var=SelectVar.max_bound,
+                 select_var=SelectVar.max_boundmin,
                  select_value=SelectValue.min_value,
                  timeout=None,
                  limit=None,
@@ -388,7 +439,6 @@ class ModelSolver:
             if var_info.domain is not None:
                 original_domains[var_name] = var_info.domain
                 initial_domain = list(var_info.domain)
-                select_value.init(initial_domain)
                 initial_domains[var_name] = initial_domain
 
         var_names = list(initial_domains)
@@ -507,6 +557,7 @@ class ModelSolver:
         limit = solver.limit
         state = self._state
         timer = state.timer
+        solution_transformer = model.transform_solution
 
         if not (model_info.solvable and model_info.var_names):
             state.state = State.DONE
@@ -520,9 +571,13 @@ class ModelSolver:
         objective_functions = model_info.objective_functions
 
         # 2. solve:
+        timer.start()
         stack = []
         if var_names:
-            var_name, unbound_var_names = select_var([], var_names, model_info)
+            bound_var_names = set()
+            unbound_var_names = list(var_names)
+            select_var.init(bound_var_names, unbound_var_names, model_info)
+            var_name, unbound_var_names = select_var(bound_var_names, unbound_var_names, model_info)
             # o = model_info.original_domains
             # i = model_info.initial_domains
             # m = model_info.var_map
@@ -530,8 +585,10 @@ class ModelSolver:
             #     print("{:16s} {:4d} {:4d} {:4d}".format(v, len(o[v]), len(i[v]), sum(m[v].values())))
             # input("===!!!===")
             stack.append((var_name, {var_name}, unbound_var_names, {}))
+            for var_name in var_names:
+                initial_domain = model_info.initial_domains[var_name]
+                select_value.init(initial_domain)
 
-        timer.start()
         while stack:
             if timeout is not None:
                 cur_elapsed = timer.elapsed()
@@ -581,7 +638,7 @@ class ModelSolver:
                 for constraint in model.constraints():
                     if constraint.unsatisfied(substitution):
                         raise RuntimeError("constraint {} is not satisfied".format(constraint))
-                yield substitution
+                yield solution_transformer(substitution)
                 self._solution = substitution
                 for objective_function in objective_functions:
                     objective_function.add_solution(substitution)

@@ -5,7 +5,6 @@ import networkx as nx
 from ..graph_labeling import GraphLabeling
 
 from .cli_utils import (
-    render_solution,
     solve,
 )
 
@@ -79,7 +78,7 @@ def default_graph_labeling_source():
     return DEFAULT_GRAPH_LABELING_SOURCE
 
 
-def graph_labeling(input_file, labels, timeout, limit, show_model, show_stats, profile, show_mode):
+def graph_labeling(input_file, labels, timeout, limit, show_model, show_stats, profile, show_mode, output_file):
     if input_file is None:
         source = default_graph_labeling_source()
         print("""\
@@ -94,10 +93,6 @@ No input file - using default data:
 
     model = GraphLabeling(graph, labels)
 
-    def render_graph(solution):
-        return render_solution(model.create_node_labels(solution))
-
-
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
-          render_solution=render_graph)
+          output_file=output_file)

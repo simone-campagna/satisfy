@@ -41,7 +41,7 @@ def default_knapsack_source():
     return DEFAULT_KNAPSACK_SOURCE
 
 
-def knapsack(input_file, timeout, limit, show_model, show_stats, profile, show_mode):
+def knapsack(input_file, timeout, limit, show_model, show_stats, profile, show_mode, output_file):
     if input_file is None:
         source = default_knapsack_source()
         print("""\
@@ -71,17 +71,6 @@ No input file - using default data:
         knapsack_solution = model.make_knapsack_solution(solution)
         return "{} [{:d}]".format(solution_string(knapsack_solution.solution), knapsack_solution.value)
         
-    # REM def print_knapsack_result(optimization_result):
-    # REM     if optimization_result.solution is not None:
-    # REM         if optimization_result.is_optimal:
-    # REM             sol_type = 'optimal'
-    # REM         else:
-    # REM             sol_type = 'sub-optimal'
-    # REM         print("Found {} solution:".format(sol_type))
-    # REM         print_knapsack_solution(optimization_result.count, optimization_result.solution)
-    # REM     else:
-    # REM         print("No solution found")
-
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
-          render_solution=render_knapsack_solution)
+          output_file=output_file, render_solution=render_knapsack_solution)

@@ -28,13 +28,13 @@ def render_riddle_solution(solution):
     return '\n'.join(lines)
 
 
-def einstein(timeout, limit, show_model, show_stats, profile, show_mode):
+def einstein(timeout, limit, show_model, show_stats, profile, show_mode, output_file):
     model = EinsteinRiddle()
     print(model.riddle())
 
     def render_riddle(solution):
-        return render_riddle_solution(model.create_riddle_solution(solution))
+        return render_riddle_solution(solution)
 
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
-          render_solution=render_riddle)
+          output_file=output_file, render_solution=render_riddle)

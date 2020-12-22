@@ -138,7 +138,7 @@ class EinsteinRiddle(Model):
         lst.append("(see http://rosettacode.org/wiki/Zebra_puzzle)")
         return '\n'.join(lst)
 
-    def create_riddle_solution(self, solution):
+    def transform_solution(self, solution):
         z_sol = {}
         indices = self._indices
         for index in indices:

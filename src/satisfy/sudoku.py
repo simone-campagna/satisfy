@@ -86,7 +86,7 @@ class Sudoku(Model):
             limit = 1
         return Solver(
             limit=limit,
-            select_var=kwargs.pop('select_var', SelectVar.max_bound),
+            select_var=kwargs.pop('select_var', SelectVar.min_bound),
             select_value=kwargs.pop('select_value', SelectValue.min_value),
             **kwargs
         )

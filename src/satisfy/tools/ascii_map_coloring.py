@@ -99,9 +99,8 @@ class AsciiMapColoring(GraphLabeling):
         colors = self._labels
         glabels = list('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ')
         ascii_map = [[' ' for _ in row] for row in orig_ascii_map]
-        node_labels = self.create_node_labels(solution)
         for gid, positions in enumerate(groups):
-            color = node_labels[gid]
+            color = solution[gid]
             value = termcolor.colored(str(glabels[gid % len(glabels)]), color)
             for r, c in positions:
                 ascii_map[r][c] = value

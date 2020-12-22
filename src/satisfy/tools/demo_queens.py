@@ -36,7 +36,7 @@ def render_queens_board(board_size, board):
     return '\n'.join(lines)
 
 
-def queens(board_size, timeout, limit, show_model, show_stats, profile, show_mode):
+def queens(board_size, timeout, limit, show_model, show_stats, profile, show_mode, output_file):
     model = Queens(board_size)
 
     def render_queens(solution):
@@ -44,4 +44,4 @@ def queens(board_size, timeout, limit, show_model, show_stats, profile, show_mod
 
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
-          render_solution=render_queens)
+          output_file=output_file, render_solution=render_queens)

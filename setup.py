@@ -28,7 +28,7 @@ if __name__ == "__main__":
         description="Constraint satisfaction problem solver",
         author="Simone Campagna",
         author_email="simone.campagna11@gmail.com",
-        install_requires=["networkx", "termcolor", "argcomplete"],
+        install_requires=["networkx", "termcolor", "ply", "argcomplete"],
         url='',
         download_url = '',
         package_dir={'': 'src'},

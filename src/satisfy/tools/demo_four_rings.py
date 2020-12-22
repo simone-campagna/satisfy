@@ -32,7 +32,7 @@ def render_four_rings(model, solution):
     return '\n'.join(lines)
 
 
-def four_rings(low, high, unique, timeout, limit, show_model, show_stats, profile, show_mode):
+def four_rings(low, high, unique, timeout, limit, show_model, show_stats, profile, show_mode, output_file):
     model = FourRings(low=low, high=high, unique=unique)
 
     def render_solution(solution):
@@ -40,7 +40,7 @@ def four_rings(low, high, unique, timeout, limit, show_model, show_stats, profil
 
     solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
-          render_solution=render_solution)
+          output_file=output_file, render_solution=render_solution)
 
 
 
