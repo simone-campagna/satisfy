@@ -139,7 +139,7 @@ class MaxValueSelector(ValueSelector):
 
 
 class VarSelector(Selector):
-    def init(self, bound_var_names, unbound_var_names, model_info):
+    def init(self, unbound_var_names, model_info):
         pass
 
     @abc.abstractmethod
@@ -173,7 +173,7 @@ def iterator_len(it):
 
 
 class BoundVarSelector(VarSelector):
-    def init(self, bound_var_names, unbound_var_names, model_info):
+    def init(self, unbound_var_names, model_info):
         var_map = model_info.var_map
         key_function = self.__class__.__key_function__
         reverse = self.__reverse__
@@ -233,14 +233,8 @@ class Max_BoundLenSelector(BoundVarSelector):
 
 
 class DomainVarSelector(VarSelector):
-    def init(self, bound_var_names, unbound_var_names, model_info):
-        self.sort_vars(var_domains, bound_var_names, unbound_var_names, model_info)
-
-    def sort_vars(self, bound_var_names, unbound_var_names, model_info):
-        if bound_var_names:
-            var_domains = model_info.domains
-        else:
-            var_domains = model_info.original_domains
+    def init(self, unbound_var_names, model_info):
+        var_domains = model_info.original_domains
         unbound_var_names.sort(key=lambda v: len(var_domains[v]))
 
 
@@ -262,7 +256,7 @@ class MaxDomainVarSelector(DomainVarSelector):
 
 @SelectVar.__register__('group_prio')
 class MaxDomainVarSelector(VarSelector):
-    def init(self, bound_var_names, unbound_var_names, model_info):
+    def init(self, unbound_var_names, model_info):
         var_group_prio = model_info.var_group_prio
         var_bounds = model_info.var_bounds
         var_domains = model_info.initial_domains
@@ -275,7 +269,7 @@ class MaxDomainVarSelector(VarSelector):
 
 @SelectVar.__register__('min_alphanumeric')
 class MinAlphanumericVarSelector(VarSelector):
-    def init(self, bound_var_names, unbound_var_names, model_info):
+    def init(self, unbound_var_names, model_info):
         unbound_var_names.sort(reverse=True)
 
     def __call__(self, bound_var_names, unbound_var_names, model_info):
@@ -285,7 +279,7 @@ class MinAlphanumericVarSelector(VarSelector):
 
 @SelectVar.__register__('max_alphanumeric')
 class MaxAlphanumericVarSelector(VarSelector):
-    def init(self, domain):
+    def init(self, unbound_var_names, model_info):
         unbound_var_names.sort()
 
     def __call__(self, bound_var_names, unbound_var_names, model_info):
@@ -293,6 +287,9 @@ class MaxAlphanumericVarSelector(VarSelector):
         return var_name, unbound_var_names
 
 
+def var_distance(var_name, model_info):
+    for var_name in model_info:
+        
 class Solver:
     def __init__(self,
                  select_var=SelectVar.max_boundmin,
@@ -574,10 +571,9 @@ class ModelSolver:
         timer.start()
         stack = []
         if var_names:
-            bound_var_names = set()
             unbound_var_names = list(var_names)
-            select_var.init(bound_var_names, unbound_var_names, model_info)
-            var_name, unbound_var_names = select_var(bound_var_names, unbound_var_names, model_info)
+            select_var.init(unbound_var_names, model_info)
+            var_name, unbound_var_names = select_var(set(), unbound_var_names, model_info)
             # o = model_info.original_domains
             # i = model_info.initial_domains
             # m = model_info.var_map
