@@ -3,6 +3,7 @@ import collections
 import contextlib
 import enum
 import itertools
+import logging
 import random
 
 from .constraint import AllDifferentConstraint
@@ -21,6 +22,8 @@ __all__ = [
     'SolverState',
     'ModelSolver',
 ]
+
+LOG = logging.getLogger(__name__)
 
 
 ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
@@ -103,8 +106,11 @@ class ValueSelector(Selector):
 
 @SelectValue.__register__('in_order')
 class InOrderValueSelector(ValueSelector):
+    def init(self, domain):
+        domain.reverse()
+
     def __call__(self, var_name, substitution, domain):
-        value = domain.pop(0)
+        value = domain.pop(-1)
         return value, domain
 
 
@@ -139,30 +145,78 @@ class MaxValueSelector(ValueSelector):
 
 
 class VarSelector(Selector):
+    @abc.abstractmethod
     def init(self, unbound_var_names, model_info):
-        pass
+        raise NotImplementedError()
+
+    def __call__(self, bound_var_names, unbound_var_names, model_info):
+        var_name = self.select_var(bound_var_names, unbound_var_names, model_info)
+        bound_var_names.append(var_name)
+        enabled_constraints = self.select_enabled_constraints(bound_var_names, unbound_var_names, model_info)
+        return var_name, bound_var_names, unbound_var_names, enabled_constraints
 
     @abc.abstractmethod
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
+    def sort_var_names(self, unbound_var_names, model_info):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def select_var(self, bound_var_names, unbound_var_names, model_info):
+        raise NotImplementedError()
+    
+    @abc.abstractmethod
+    def select_enabled_constraints(self, bound_var_names, unbound_var_names, model_info):
         raise NotImplementedError()
     
     def __repr__(self):
         return 'SelectVar.{}'.format(self.name)
 
     
+class StaticVarSelector(VarSelector):
+    def init(self, unbound_var_names, model_info):
+        self.sort_var_names(unbound_var_names, model_info)
+        self.constraints = [[]]
+        var_constraints = model_info.var_constraints
+        s_bound_var_names = set()
+        for var_name in reversed(unbound_var_names):
+            s_bound_var_names.add(var_name)
+            var_clist = []
+            for constraint in var_constraints[var_name]:
+                if constraint.vars() <= s_bound_var_names:
+                    var_clist.append(constraint)
+            self.constraints.append(var_clist)
+
+    def select_enabled_constraints(self, bound_var_names, unbound_var_names, model_info):
+        return self.constraints[len(bound_var_names)]
+
+    def select_var(self, bound_var_names, unbound_var_names, model_info):
+        return unbound_var_names.pop(-1)
+
+
+class DynamicVarSelector(VarSelector):
+    def init(self, unbound_var_names, model_info):
+        pass
+
+    def select_enabled_constraints(self, bound_var_names, unbound_var_names, model_info):
+        var_name = bound_var_names[-1]
+        var_constraints = model_info.var_constraints[var_name]
+        enabled_constraints = []
+        var_set = set(bound_var_names)
+        for constraint in var_constraints:
+            if constraint.vars() <= var_set:
+                enabled_constraints.append(constraint)
+        return enabled_constraints
+
+
 @SelectVar.__register__('in_order')
-class InOrderVarSelector(VarSelector):
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        var_name = unbound_var_names.pop(0)
-        return var_name, unbound_var_names
+class InOrderVarSelector(StaticVarSelector):
+    def sort_var_names(self, unbound_var_names, model_info):
+        unbound_var_names.reverse()
 
 
 @SelectVar.__register__('random')
-class RandomVarSelector(VarSelector):
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        idx = random.randrange(0, len(unbound_var_names))
-        var_name = unbound_var_names.pop(idx)
-        return var_name, unbound_var_names
+class RandomVarSelector(StaticVarSelector):
+    def sort_var_names(self, unbound_var_names, model_info):
+        random.shuffle(unbound_var_names)
 
 
 def iterator_len(it):
@@ -172,16 +226,18 @@ def iterator_len(it):
     return count
 
 
-class BoundVarSelector(VarSelector):
-    def init(self, unbound_var_names, model_info):
+class BoundVarSelector(StaticVarSelector):
+    def sort_var_names(self, unbound_var_names, model_info):
         var_map = model_info.var_map
         key_function = self.__class__.__key_function__
-        reverse = self.__reverse__
-        unbound_var_names.sort(key=lambda v: key_function(var_map[v].values()), reverse=reverse)
-
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        var_name = unbound_var_names.pop(-1)
-        return var_name, unbound_var_names
+        if self.__reverse__:
+            unbound_var_names.reverse()  # stable sort!
+        unbound_var_names.sort(key=lambda v: key_function(var_map[v].values()), reverse=self.__reverse__)
+        # print(":::", self)
+        # for var_name in unbound_var_names:
+        #     v = var_map[var_name].values()
+        #     print("  :", var_name, key_function, key_function(v), v)
+        # input("...")
 
 
 @SelectVar.__register__('min_boundmin')
@@ -232,64 +288,58 @@ class Max_BoundLenSelector(BoundVarSelector):
     __reverse__ = False
 
 
-class DomainVarSelector(VarSelector):
-    def init(self, unbound_var_names, model_info):
+class DomainVarSelector(DynamicVarSelector):
+    def sort_var_names(self, unbound_var_names, model_info, reverse):
         var_domains = model_info.original_domains
-        unbound_var_names.sort(key=lambda v: len(var_domains[v]))
+        if reverse:
+            unbound_var_names.reverse()  # stable sort
+        unbound_var_names.sort(key=lambda v: len(var_domains[v]), reverse=reverse)
 
 
 @SelectVar.__register__('min_domain')
 class MinDomainVarSelector(DomainVarSelector):
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        self.sort_vars(bound_var_names, unbound_var_names, model_info)
-        var_name = unbound_var_names.pop(0)
-        return var_name, unbound_var_names
+    def select_var(self, bound_var_names, unbound_var_names, model_info):
+        self._sort(unbound_var_names, model_info, reverse=True)
+        return unbound_var_names.pop(-1)
 
 
 @SelectVar.__register__('max_domain')
 class MaxDomainVarSelector(DomainVarSelector):
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        self.sort_vars(bound_var_names, unbound_var_names, model_info)
-        var_name = unbound_var_names.pop(-1)
-        return var_name, unbound_var_names
+    def select_var(self, bound_var_names, unbound_var_names, model_info):
+        self._sort(unbound_var_names, model_info, reverse=False)
+        return unbound_var_names.pop(-1)
 
 
 @SelectVar.__register__('group_prio')
-class MaxDomainVarSelector(VarSelector):
-    def init(self, unbound_var_names, model_info):
+class GroupPrioVarSelector(StaticVarSelector):
+    def sort_var_names(self, unbound_var_names, model_info):
         var_group_prio = model_info.var_group_prio
         var_bounds = model_info.var_bounds
         var_domains = model_info.initial_domains
-        unbound_var_names.sort(key=lambda v: (var_group_prio[v], var_bounds[v], len(var_domains[v])))
+        unbound_var_names.sort(key=lambda v: (var_group_prio[v], var_bounds[v], len(var_domains[v])), reverse=True)
 
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        var_name = unbound_var_names.pop(0)
-        return var_name, unbound_var_names
+    def select_var(self, bound_var_names, unbound_var_names, model_info):
+        return unbound_var_names.pop(-1)
 
 
 @SelectVar.__register__('min_alphanumeric')
-class MinAlphanumericVarSelector(VarSelector):
-    def init(self, unbound_var_names, model_info):
+class MinAlphanumericVarSelector(StaticVarSelector):
+    def sort_var_names(self, unbound_var_names, model_info):
         unbound_var_names.sort(reverse=True)
 
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        var_name = unbound_var_names.pop(-1)
-        return var_name, unbound_var_names
+    def select_var(self, bound_var_names, unbound_var_names, model_info):
+        return unbound_var_names.pop(-1)
 
 
 @SelectVar.__register__('max_alphanumeric')
-class MaxAlphanumericVarSelector(VarSelector):
-    def init(self, unbound_var_names, model_info):
-        unbound_var_names.sort()
+class MaxAlphanumericVarSelector(StaticVarSelector):
+    def sort_var_names(self, unbound_var_names, model_info):
+        unbound_var_names.sort(reverse=False)
 
-    def __call__(self, bound_var_names, unbound_var_names, model_info):
-        var_name = unbound_var_names.pop(-1)
-        return var_name, unbound_var_names
+    def select_var(self, bound_var_names, unbound_var_names, model_info):
+        return unbound_var_names.pop(-1)
 
 
-def var_distance(var_name, model_info):
-    for var_name in model_info:
-        
 class Solver:
     def __init__(self,
                  select_var=SelectVar.max_boundmin,
@@ -468,7 +518,6 @@ class ModelSolver:
             else:
                 if reduce_max_depth >= 0 and len(c_vars) == 0:
                     b_value = constraint.evaluate({})
-                    # print("discard {}: always -> {}".format(constraint, b_value))
                     if not b_value:
                         solvable = False
                     accepted = False
@@ -479,10 +528,7 @@ class ModelSolver:
                         if constraint.evaluate({c_var: value}):
                             var_domain.append(value)
                     if initial_domains[c_var] != var_domain:
-                        # print("discard {}: domain reduced: {} -> {}".format(constraint, initial_domains[c_var], var_domain))
                         initial_domains[c_var] = var_domain
-                    # else:
-                    #     print("discard {}: always True on domain {}".format(constraint, initial_domains[c_var]))
                     accepted = False
                 for var_name in c_vars:
                     var_constraints[var_name].append(constraint)
@@ -573,14 +619,8 @@ class ModelSolver:
         if var_names:
             unbound_var_names = list(var_names)
             select_var.init(unbound_var_names, model_info)
-            var_name, unbound_var_names = select_var(set(), unbound_var_names, model_info)
-            # o = model_info.original_domains
-            # i = model_info.initial_domains
-            # m = model_info.var_map
-            # for v in [var_name] + unbound_var_names:
-            #     print("{:16s} {:4d} {:4d} {:4d}".format(v, len(o[v]), len(i[v]), sum(m[v].values())))
-            # input("===!!!===")
-            stack.append((var_name, {var_name}, unbound_var_names, {}))
+            var_name, bound_var_names, unbound_var_names, enabled_constraints = select_var([], unbound_var_names, model_info)
+            stack.append((var_name, bound_var_names, unbound_var_names, enabled_constraints, {}))
             for var_name in var_names:
                 initial_domain = model_info.initial_domains[var_name]
                 select_value.init(initial_domain)
@@ -592,7 +632,7 @@ class ModelSolver:
                     state.state = State.INTERRUPT_TIMEOUT
                     return
 
-            var_name, bound_var_names, unbound_var_names, substitution = stack[-1]
+            var_name, bound_var_names, unbound_var_names, enabled_constraints, substitution = stack[-1]
             # var_name = bound_var_names[-1]
             substitution = substitution.copy()
             reduced_domain = reduced_domains.get(var_name, None)
@@ -601,17 +641,22 @@ class ModelSolver:
                 forbidden_values = {value for vname, value in substitution.items() if vname in var_ad[var_name]}
 
                 reduced_domain = [value for value in initial_domains[var_name] if value not in forbidden_values]
-                for constraint in var_constraints[var_name]:
-                    if constraint.vars() <= bound_var_names:
-                        c_fun = constraint.evaluate
-                        nr_dom = []
-                        for value in reduced_domain:
-                            substitution[var_name] = value
+                for constraint in enabled_constraints:
+                    c_fun = constraint.evaluate
+                    nr_dom = []
+                    for value in reduced_domain:
+                        substitution[var_name] = value
+                        try:
                             if c_fun(substitution):
                                 nr_dom.append(value)
-                        reduced_domain = nr_dom
-                        if not reduced_domain:
-                            break
+                        except:
+                            LOG.error("constraint: %s", constraint)
+                            LOG.error("substitution: %s", substitution)
+                            LOG.exception("constraint evaluation failed:")
+                            raise
+                    reduced_domain = nr_dom
+                    if not reduced_domain:
+                        break
                 if reduced_domain:
                     reduced_domains[var_name] = reduced_domain
                 else:
@@ -625,9 +670,8 @@ class ModelSolver:
             value, reduced_domain = select_value(var_name, substitution, reduced_domain)
             substitution[var_name] = value
             if unbound_var_names:
-                unbound_var_names = list(unbound_var_names)
-                next_var_name, next_unbound_var_names = select_var(bound_var_names, unbound_var_names, model_info)
-                stack.append((next_var_name, bound_var_names | {next_var_name}, next_unbound_var_names, substitution))
+                next_var_name, next_bound_var_names, next_unbound_var_names, next_enabled_constraints = select_var(list(bound_var_names), list(unbound_var_names), model_info)
+                stack.append((next_var_name, next_bound_var_names, next_unbound_var_names, next_enabled_constraints, substitution))
             else:
                 timer.stop()
                 state.add_solution(substitution)
