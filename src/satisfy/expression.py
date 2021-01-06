@@ -612,14 +612,8 @@ class Or(BinOp):
     def _op(self, left_value, right_value):
         return left_value or right_value
 
-    def py_expr(self):
-        return "{} or {}".format(self._expressions[0].py_expr(), self._expressions[1].py_expr())
-
 
 class Not(UnOp):
-    __symbol__ = '^'
-    __py_symbol__ = 'not'
-
     def evaluate(self, substitution):
         return not self._expressions[0].evaluate(substitution)
 

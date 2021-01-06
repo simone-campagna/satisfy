@@ -74,6 +74,10 @@ class ExpressionConstraint(Constraint):
         super().__init__(self._expression.vars())
         self._evaluate_function = None
 
+    @property
+    def expression(self):
+        return self._expression
+
     def is_compiled(self):
         return self._evaluate_function is not None
 

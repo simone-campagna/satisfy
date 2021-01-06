@@ -1,7 +1,8 @@
 import collections
+import itertools
 
 from .model import Model
-from .solver import Solver, SelectVar, SelectValue
+from .solver import Solver, SelectVar, StaticVarSelector, SelectValue
 
 __all__ = [
     'Nonogram',
@@ -14,6 +15,38 @@ VarInfo = collections.namedtuple('VarInfo', 'size start_value end_value')
     
 
 
+# @SelectVar.__register__('nonogram')
+# class NonogramVarSelector(StaticVarSelector):
+#     def sort_var_names(self, unbound_var_names, model_info):
+#         model = model_info.model
+#         num_rows, num_cols = model.shape
+#         row_vars = model.row_vars
+#         col_vars = model.col_vars
+#         var_infos = model.var_infos
+#         var_value = {}
+#         for r, r_vars in enumerate(row_vars):
+#             for var in r_vars:
+#                 var_value[var.name] = len(r_vars)
+#         for c, c_vars in enumerate(col_vars):
+#             for var in c_vars:
+#                 var_value[var.name] = len(c_vars)
+#         key_fn = lambda v: var_value[v]
+#         all_vars = sorted(var_value, key=key_fn, reverse=True)
+#         unbound_var_names.clear()
+# 
+#         def var_key_fn(v):
+#             v_infos = var_infos[v]
+#             return v_infos.end_value - v_infos.start_value
+# 
+#         for dummy, var_group in itertools.groupby(all_vars, key=key_fn):
+#             var_group = list(var_group)
+#             print("...", dummy, var_group)
+#             var_group.sort(key=var_key_fn, reverse=True)
+#             print("  .", dummy, var_group)
+#             unbound_var_names.extend(var_group)
+#         print(unbound_var_names)
+            
+        
 class Nonogram(Model):
     def __init__(self, nonogram, **args):
         super().__init__(**args)
@@ -24,7 +57,7 @@ class Nonogram(Model):
         var_infos = {}
 
         # add row vars and constraints:
-        row_vars = {r: [] for r in range(num_rows)}
+        row_vars = [[] for r in range(num_rows)]
         for r, row in enumerate(rows):
             cur_vars = row_vars[r]
             if row:
@@ -46,7 +79,7 @@ class Nonogram(Model):
                     cur_vars.append(var)
 
         # add col vars and constraints:
-        col_vars = {c: [] for c in range(num_cols)}
+        col_vars = [[] for c in range(num_cols)]
         for c, col in enumerate(cols):
             cur_vars = col_vars[c]
             if col:
@@ -104,6 +137,22 @@ class Nonogram(Model):
         self._row_vars = row_vars
         self._col_vars = col_vars
 
+    @property
+    def shape(self):
+        return self._shape
+
+    @property
+    def row_vars(self):
+        return self._row_vars
+
+    @property
+    def col_vars(self):
+        return self._col_vars
+
+    @property
+    def var_infos(self):
+        return self._var_infos
+
     def solver(self, **kwargs):
         return Solver(
             select_var=kwargs.pop('select_var', SelectVar.min_boundmax),
@@ -124,7 +173,7 @@ class Nonogram(Model):
         row_vars = self._row_vars
         var_infos = self._var_infos
         pixmap = [[0 for _ in range(num_cols)] for _ in range(num_rows)]
-        for r, cur_vars in row_vars.items():
+        for r, cur_vars in enumerate(row_vars):
             for var in cur_vars:
                 start = solution[var.name] 
                 size = var_infos[var.name].size

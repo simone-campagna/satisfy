@@ -5,11 +5,16 @@ from .constraint import ExpressionConstraint
 from .expression import Expression
 
 __all__ = [
+    'ObjectiveConstraint',
     'ObjectiveFunction',
     'Objective',
     'Maximize',
     'Minimize',
 ]
+
+
+class ObjectiveConstraint(ExpressionConstraint):
+    pass
 
 
 class ObjectiveFunction:
@@ -52,7 +57,7 @@ class Objective(abc.ABC):
         return "{}({})".format(type(self).__name__, self._expression)
 
 
-class MinMaxConstraint(ExpressionConstraint):
+class MinMaxConstraint(ObjectiveConstraint):
     def __init__(self, model, expression, op):
         self._model = model
         self._not_set = model.add_parameter(1)

@@ -6,9 +6,9 @@ import itertools
 import logging
 import random
 
-from .constraint import AllDifferentConstraint
+from .constraint import AllDifferentConstraint, ExpressionConstraint
 from .expression import expression_globals
-from .objective import Objective
+from .objective import Objective, ObjectiveConstraint
 from .utils import INFINITY, Timer
 
 
@@ -29,6 +29,8 @@ LOG = logging.getLogger(__name__)
 ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
     'ModelInfo',
     [
+        'model',
+        'solver',
         'solvable',
         'objective_functions',
         'original_domains',
@@ -173,17 +175,40 @@ class VarSelector(Selector):
     
 class StaticVarSelector(VarSelector):
     def init(self, unbound_var_names, model_info):
+        join_constraints = False  # no difference in performances
         self.sort_var_names(unbound_var_names, model_info)
         self.constraints = [[]]
         var_constraints = model_info.var_constraints
         s_bound_var_names = set()
+        m_globals = model_info.model.globals
+        compile_constraints = model_info.solver.compile_constraints
         for var_name in reversed(unbound_var_names):
             s_bound_var_names.add(var_name)
             var_clist = []
             for constraint in var_constraints[var_name]:
                 if constraint.vars() <= s_bound_var_names:
                     var_clist.append(constraint)
+            if join_constraints and len(var_clist) > 1:
+                new_var_clist = []
+                var_elist = []
+                for var_c in var_clist:
+                    if isinstance(var_c, ExpressionConstraint) and not isinstance(var_c, ObjectiveConstraint):
+                        var_elist.append(var_c.expression)
+                    else:
+                        new_var_clist.append(var_c)
+                if var_elist:
+                    var_e = var_elist[0]
+                    for var_e1 in var_elist[1:]:
+                        var_e &= var_e1
+                    new_var_c = ExpressionConstraint(var_e)
+                    if compile_constraints:
+                        new_var_c.compile()
+                    new_var_clist.append(new_var_c)
+                var_clist = new_var_clist
             self.constraints.append(var_clist)
+        # for v, cs in zip(unbound_var_names, self.constraints[1:]):
+        #     print(v, len(cs), cs)
+        # input("...")
 
     def select_enabled_constraints(self, bound_var_names, unbound_var_names, model_info):
         return self.constraints[len(bound_var_names)]
@@ -227,12 +252,16 @@ def iterator_len(it):
 
 
 class BoundVarSelector(StaticVarSelector):
+    __key_function__ = None
+    __reverse__ = None
+
     def sort_var_names(self, unbound_var_names, model_info):
         var_map = model_info.var_map
         key_function = self.__class__.__key_function__
         if self.__reverse__:
             unbound_var_names.reverse()  # stable sort!
         unbound_var_names.sort(key=lambda v: key_function(var_map[v].values()), reverse=self.__reverse__)
+        # print(unbound_var_names)
         # print(":::", self)
         # for var_name in unbound_var_names:
         #     v = var_map[var_name].values()
@@ -340,6 +369,97 @@ class MaxAlphanumericVarSelector(StaticVarSelector):
         return unbound_var_names.pop(-1)
 
 
+class ActivationVarSelector(StaticVarSelector):
+    __reverse__ = False
+
+    def sort_var_names(self, unbound_var_names, model_info):
+        c_free_vars = {}
+        for constraint in model_info.model.constraints():
+            c_free_vars[constraint] = set(constraint.vars())
+
+        v_constraints = {}
+        for var_name, constraints in model_info.var_constraints.items():
+            v_constraints[var_name] = set(constraints)
+        
+        unbound_var_set = set(unbound_var_names)
+        unbound_var_names.clear()
+        while unbound_var_set:
+            # 1 select free constraints
+            if not c_free_vars:
+                break
+            key_fn = lambda c: len(c_free_vars[c])
+            c_data = list(c_free_vars)
+            c_data.sort(key=key_fn)
+            _, c_group = next(iter(itertools.groupby(c_data, key=key_fn)))
+
+            # 2 select vars
+            v_set = set()
+            for constraint in c_group:
+                v_set.update(c_free_vars[constraint])
+            key_fn = lambda v: len(v_constraints[v])
+            var_name = sorted(v_set, key=key_fn)[0]
+            unbound_var_names.append(var_name)
+
+            # 3 update data
+            unbound_var_set.discard(var_name)
+            del v_constraints[var_name]
+            del_constraints = []
+            for constraint, c_vars in c_free_vars.items():
+                c_vars.discard(var_name)
+                if not c_vars:
+                    del_constraints.append(constraint)
+            for constraint in del_constraints:
+                del c_free_vars[constraint]
+        if self.__reverse__:
+            unbound_var_names.reverse()
+        print(unbound_var_names)
+
+
+@SelectVar.__register__('min_activation')
+class MinActivationVarSelector(ActivationVarSelector):
+    __reverse__ = False
+
+
+@SelectVar.__register__('max_activation')
+class MaxActivationVarSelector(ActivationVarSelector):
+    __reverse__ = True
+
+
+# class DistanceVarSelector(StaticVarSelector):
+#     __reverse__ = None
+# 
+#     def sort_var_names(self, unbound_var_names, model_info):
+#         bvars = []
+#         var_constraints = model_info.var_constraints
+#         value = {v: 0.0 for v in unbound_var_names}
+#         while unbound_var_names:
+#             for constraint in model_info.constraints:
+#                 c_vars = constraint.vars()
+#                 if len(c_vars) == 1:
+#                     value[list(c_vars)[0]] += 1
+#                 elif c_vars:
+#                     for v0, v1 in itertools.combinations(c_vars, 2):
+#                         vd = 1.0 / len(c_vars)
+#                         value[v0] += vd
+#                         value[v1] += vd
+#             unbound_var_names.sort(key=value.__getitem__, reverse=self.__reverse__)
+#             var_name = unbound_var_names.pop(-1)
+#             bvars.append(var_name)
+#         bvars.reverse()
+#         unbound_var_names.clear()
+#         unbound_var_names.extend(bvars)
+#             
+#           
+# @SelectVar.__register__('min_distance')
+# class MinDistanceVarSelector(DistanceVarSelector):
+#     __reverse__ = True
+# 
+#     
+# @SelectVar.__register__('max_distance')
+# class MaxDistanceVarSelector(DistanceVarSelector):
+#     __reverse__ = False
+
+    
 class Solver:
     def __init__(self,
                  select_var=SelectVar.max_boundmin,
@@ -550,6 +670,8 @@ class ModelSolver:
         reduced_domains = {}
         domains = collections.ChainMap(reduced_domains, initial_domains)
         self._model_info = ModelInfo(
+            model=model,
+            solver=solver,
             solvable=solvable,
             objective_functions=objective_functions,
             original_domains=original_domains,
@@ -642,11 +764,13 @@ class ModelSolver:
 
                 reduced_domain = [value for value in initial_domains[var_name] if value not in forbidden_values]
                 for constraint in enabled_constraints:
+                    #print(":::", constraint.expression)
                     c_fun = constraint.evaluate
                     nr_dom = []
                     for value in reduced_domain:
                         substitution[var_name] = value
                         try:
+                            #print("  .", substitution, c_fun(substitution))
                             if c_fun(substitution):
                                 nr_dom.append(value)
                         except:
@@ -677,7 +801,7 @@ class ModelSolver:
                 state.add_solution(substitution)
                 for constraint in model.constraints():
                     if constraint.unsatisfied(substitution):
-                        raise RuntimeError("constraint {} is not satisfied".format(constraint))
+                        raise RuntimeError("constraint {} is not satisfied by {}".format(constraint, substitution))
                 yield solution_transformer(substitution)
                 self._solution = substitution
                 for objective_function in objective_functions:
