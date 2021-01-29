@@ -134,6 +134,9 @@ class Expression(abc.ABC):
     def __truediv__(self, other):
         return self.__div__(other)
 
+    def __floordiv__(self, other):
+        return self.__div__(other)
+
     def __eq__(self, other):
         return Eq(self, other)
 
