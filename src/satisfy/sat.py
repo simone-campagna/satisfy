@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import collections.abc
 import itertools
 import logging
 import operator
@@ -69,6 +70,45 @@ def make_binop(sat, l, op, r):
     return BINOP[op](make_value(sat, l), make_value(sat, r))
 
 
+
+
+class SatProxy(collections.abc.Mapping):
+    def __init__(self, sat, solution):
+        self.__sat = sat
+        self.__solution = solution
+
+    def __getitem__(self, key):
+        return self.__solution(key)
+
+    def __len__(self):
+        return len(self.__solution)
+
+    def __iter__(self):
+        yield from self.__solution
+
+    @property
+    def solution(self):
+        return self.__solution
+
+    @property
+    def variables(self):
+        return dict(self.__sat.variables())
+
+    @property
+    def constraints(self):
+        return list(self.__sat.constraints())
+
+    @property
+    def objectives(self):
+        return list(self.__sat.objectives())
+
+    def __repr__(self):
+        return repr(self.__solution)
+
+    def __str__(self):
+        return str(self.__solution)
+
+
 class Sat(Model):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -87,10 +127,12 @@ class Sat(Model):
     def render_solution(self, solution):
         if self.output:
             fmt = '\n'.join(self.output)
-            macros = {}
+            data = {
+                '_': SatProxy(self, solution),
+            }
             for macro, expression in self.macros.items():
-                macros[macro] = expression.evaluate(solution)
-            return fmt.format(**solution, **macros)
+                data[macro] = expression.evaluate(solution)
+            return fmt.format(**solution, **data)
         else:
             return solution
 
