@@ -38,7 +38,7 @@ def render_cryptarithm_solution(solution, system):
     for source in system:
         subst_source = source
         for key in sorted(solution):
-            subst_source = subst_source.replace(key, str(solution[key]))
+            subst_source = subst_source.upper().replace(key, str(solution[key]))
         subst_system.append(subst_source)
     lines.append(render_cryptarithm_system(subst_system, header='===> '))
     return '\n'.join(lines)

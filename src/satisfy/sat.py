@@ -61,7 +61,7 @@ OBJECTIVE = {
 
 def make_value(sat, v):
     if isinstance(v, str):
-        v = sat.vars[v]
+        v = sat.get_symbol(v)
     return v
 
 
@@ -79,6 +79,9 @@ class Sat(Model):
         self.__limit = None
         self.__timeout = None
 
+    def get_symbol(self, symbol):
+        return self.vars[symbol]
+
     def define_sat_domain(self, p, name, domain):
         # print("DEFINE DOMAIN {} := {!r}".format(name, domain))
         self.domains[name] = domain
@@ -94,6 +97,9 @@ class Sat(Model):
             self.vars[name] = var
             variables.append(var)
         return variables
+
+    def define_sat_macro(self, p, name, expression):
+        self.vars[name] = expression
 
     def add_sat_constraint(self, p, constraint):
         self.add_constraint(constraint)
@@ -164,6 +170,7 @@ class SatLexer:
        'COLON',
        'DEF_DOMAIN',
        'DEF_VAR',
+       'DEF_MACRO',
        'NEWLINE',
        'OBJECTIVE',
        'ALL_DIFFERENT_CONSTRAINT',
@@ -195,6 +202,7 @@ class SatLexer:
     t_R_SQUARE_BRACKET         = r'\]'
     t_DEF_DOMAIN               = r'\:\='
     t_DEF_VAR                  = r'\:\:'
+    t_DEF_MACRO                = r'\='
 
     def t_DEF_OPTION(self, t):
         r'option'
@@ -286,6 +294,7 @@ class SatParser:
                      | option_definition
                      | domain_definition
                      | var_definition
+                     | macro_definition
                      | constraint_definition
                      | objective_definition
         '''
@@ -424,6 +433,11 @@ class SatParser:
                       | expression NE expression
         '''
         p[0] = make_binop(self.sat, p[1], p[2], p[3])
+
+    def p_macro(self, p):
+        'macro_definition : SYMBOL DEF_MACRO expression'
+        #print("DEF", p[1], p[3])
+        p[0] = self.sat.define_sat_macro(p, p[1], p[3])
 
     ### OBJECTIVE
     def p_objective_definition(self, p):
