@@ -323,7 +323,7 @@ The SAT syntax is simple; for instance:
   # - ranges with strides [1:100:3]
   
   # create domain 'D0' containing [1, 2, 10, 11, 12, 13, 14, 15]
-  D0 := [1, 2, 10:15]
+  D0 = [1, 2, 10:15]
   
   ### VARIABLE DEFINITION ####################################
   # you must define the variables that you're going to use
@@ -339,13 +339,16 @@ The SAT syntax is simple; for instance:
   # create variables 'y', 'z' with domain [1, 3, 5]
   y, z :: [1:5:2]
   
+  # optionally create macros
+  difference := x - z
+  
   ### CONSTRAINTS ############################################
   # you can create constraints:
   
-  # create constraint x + y + z == 10
+  # create constraint x + y + z > 10
   x + y + z > 10
   
-  # create constraint x + y + z == 10
+  # create constraint x * y * z < 100
   x * y * z < 100
   
   # create all_different constraint
@@ -356,8 +359,7 @@ The SAT syntax is simple; for instance:
   # - minimize
   # - maximize
   
-  # maximize x - z
-  maximize(x - z)
+  maximize(difference)
   
   ### OPTIONS ################################################
   # you can optionally set solver options:
@@ -377,6 +379,16 @@ The SAT syntax is simple; for instance:
   
   # set timeout = 0.5
   # option(timeout, 0.5)
+  
+  ### OUTPUT #################################################
+  # You can optionally set output lines; for each solution
+  # all the output lines are shown. Variables in {...} are
+  # substituted, according to python string formatting.
+  !x is {x:2d}
+  !y is {y:2d}
+  !z is {z:2d}
+  !x - z == {difference}
+
 """,
         **common_args)
     sat_parser.set_defaults(

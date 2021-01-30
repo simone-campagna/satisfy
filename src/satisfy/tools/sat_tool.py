@@ -14,5 +14,5 @@ def sat_tool(input_file, timeout, limit, show_model, show_stats, profile, show_m
     model = sat_compile(source)
     
     solve(model, timeout=timeout, limit=limit,
-          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode, output_file=output_file)
-          #render_solution=render_solution)
+          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode, output_file=output_file,
+          render_solution=model.render_solution)

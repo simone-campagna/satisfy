@@ -1,5 +1,4 @@
-# Solve:
-#
+# Solve the following cryptarithm:
 #    ab * c == dbe
 #     +   -      -
 #   fcb / b ==  ag
@@ -7,25 +6,34 @@
 #
 #   dda + g == ddh
 #
-
+# where a, b, c, d, e, f, g, h are different digits.
+#
+# Define problem variables with their domain:
 a, b, c, d, e, f, g, h :: [0:9]
 
+# Define useful macros:
+ab := 10*a + b
+dbe := 100*d + 10*b + e
+fcb := 100*f + 10*c + b
+ag := 10*a + g
+dda := 100*d + 10*d + a
+ddh := 100*d + 10*d + h
+
+# Optionally define problem output:
+!    {ab} * {c} == {dbe}
+!     +   -      -
+!   {fcb} / {b} ==  {ag}
+!   ______________
+!
+!   {dda} + {g} == {ddh}
+
+# constraints:
 all_different(a, b, c, d, e, f, g, h)
 
-# ab * c == dbe
-(10 * a + b) * c == d * 100 + b * 10 + e
+ab * c == dbe
+fcb / b ==  ag
+dda + g == ddh
 
-# fcb / b ==  ag
-(100*f + 10*c + b) / b == (10*a + g)
-
-# dda + g == ddh
-(100*d + 10*d + a) + g == (100*d + 10*d + h)
-
-# ab + fcb == dda
-(10 * a + b) + (100*f + 10*c + b) == (100*d + 10*d + a)
-
-# c - b == g
+ab + fcb == dda
 c - b == g
-
-# dbe - ag == ddh
-d * 100 + b * 10 + e - (10*a + g) == (100*d + 10*d + h)
+dbe - ag == ddh

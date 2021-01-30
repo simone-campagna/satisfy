@@ -1,19 +1,22 @@
 # A rectangular garden is to be constructed using a rock wall as one side of the garden,
 # and wire fencing for the other three sides.
-#         y
-#   +-----------+
-#   |           |
-# x |           | x
-#   |           |
-#   +###########+
-#       rock 
+!        {y:^3d}
+!   +-----------+
+!   |           |          area:  {area}
+!   |           | {x:^3d}
+!   |           |          fence: {fence_length}
+!   +###########+
+!       rock 
 #
 # Given  100 m of wire fencing, determine the dimensions that would create a garden of
 # maximum area. What is the maximum area?
 
-D := [0:100]
+D = [0:100]
 x, y :: D
 
-2 * x + y == 100
+area := x * y
+fence_length := 2 * x + y
 
-maximize(x * y)
+fence_length == 100
+
+maximize(area)

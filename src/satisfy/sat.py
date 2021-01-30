@@ -74,13 +74,28 @@ class Sat(Model):
         super().__init__(**kwargs)
         self.domains = {}
         self.vars = {}
+        self.macros = {}
         self.__select_var = SelectVar.max_bound
         self.__select_value = SelectValue.min_value
         self.__limit = None
         self.__timeout = None
+        self.output = []
 
     def get_symbol(self, symbol):
         return self.vars[symbol]
+
+    def render_solution(self, solution):
+        if self.output:
+            fmt = '\n'.join(self.output)
+            macros = {}
+            for macro, expression in self.macros.items():
+                macros[macro] = expression.evaluate(solution)
+            return fmt.format(**solution, **macros)
+        else:
+            return solution
+
+    def define_sat_output(self, p, output):
+        self.output.append(output)
 
     def define_sat_domain(self, p, name, domain):
         # print("DEFINE DOMAIN {} := {!r}".format(name, domain))
@@ -100,6 +115,7 @@ class Sat(Model):
 
     def define_sat_macro(self, p, name, expression):
         self.vars[name] = expression
+        self.macros[name] = expression
 
     def add_sat_constraint(self, p, constraint):
         self.add_constraint(constraint)
@@ -171,10 +187,11 @@ class SatLexer:
        'DEF_DOMAIN',
        'DEF_VAR',
        'DEF_MACRO',
+       'DEF_OPTION',
+       'DEF_OUTPUT',
        'NEWLINE',
        'OBJECTIVE',
        'ALL_DIFFERENT_CONSTRAINT',
-       'DEF_OPTION',
        'SYMBOL',
     )
     
@@ -200,9 +217,9 @@ class SatLexer:
     t_SYMBOL                   = r'[a-zA-Z]\w*'
     t_L_SQUARE_BRACKET         = r'\['
     t_R_SQUARE_BRACKET         = r'\]'
-    t_DEF_DOMAIN               = r'\:\='
+    t_DEF_DOMAIN               = r'\='
     t_DEF_VAR                  = r'\:\:'
-    t_DEF_MACRO                = r'\='
+    t_DEF_MACRO                = r'\:\='
 
     def t_DEF_OPTION(self, t):
         r'option'
@@ -236,6 +253,11 @@ class SatLexer:
         v = t.value.rstrip('\n')
         t.lexer.lineno += len(t.value) - len(v)
         pass
+
+    def t_DEF_OUTPUT(self, t):
+        r'\!.*'
+        v = t.value.rstrip('\n')
+        return t
 
     t_ignore  = ' \t'
     
@@ -297,9 +319,16 @@ class SatParser:
                      | macro_definition
                      | constraint_definition
                      | objective_definition
+                     | output_definition
         '''
         p[0] = [p[1]]
 
+    ### OUTPUT DEFINITION
+    def p_output_definition(self, p):
+        'output_definition : DEF_OUTPUT'
+        output_line = p[1].lstrip()[1:]
+        p[0] = self.sat.define_sat_output(p, output_line)
+        
     ### DOMAIN DEFINITION
     def p_domain_definition(self, p):
         'domain_definition : SYMBOL DEF_DOMAIN domain'
