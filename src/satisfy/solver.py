@@ -328,14 +328,14 @@ class DomainVarSelector(DynamicVarSelector):
 @SelectVar.__register__('min_domain')
 class MinDomainVarSelector(DomainVarSelector):
     def select_var(self, bound_var_names, unbound_var_names, model_info):
-        self._sort(unbound_var_names, model_info, reverse=True)
+        self.sort_var_names(unbound_var_names, model_info, reverse=True)
         return unbound_var_names.pop(-1)
 
 
 @SelectVar.__register__('max_domain')
 class MaxDomainVarSelector(DomainVarSelector):
     def select_var(self, bound_var_names, unbound_var_names, model_info):
-        self._sort(unbound_var_names, model_info, reverse=False)
+        self.sort_var_names(unbound_var_names, model_info, reverse=False)
         return unbound_var_names.pop(-1)
 
 
