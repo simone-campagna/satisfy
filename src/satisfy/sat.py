@@ -71,8 +71,6 @@ def make_binop(sat, l, op, r):
     return BINOP[op](make_value(sat, l), make_value(sat, r))
 
 
-
-
 class SatProxy:
     def __init__(self, sat):
         self.__sat = sat
@@ -91,10 +89,16 @@ class SatProxy:
 
 
 class Sat(Model):
-    SCOPE_BEGIN = '<'
-    SCOPE_SOLUTION = '!'
-    SCOPE_OPTIMAL_SOLUTION = '$'
-    SCOPE_END = '>'
+    SCOPE_BEGIN = '[begin]'
+    SCOPE_SOLUTION = '[solution]'
+    SCOPE_OPTIMAL_SOLUTION = '[optimal-solution]'
+    SCOPE_END = '[end]'
+    SCOPES = (
+        SCOPE_BEGIN,
+        SCOPE_SOLUTION,
+        SCOPE_OPTIMAL_SOLUTION,
+        SCOPE_END,
+    )
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.domains = {}
@@ -257,14 +261,13 @@ class SatLexer:
        'DEF_VAR',
        'DEF_MACRO',
        'DEF_OPTION',
-       'DEF_OUTPUT_BEGIN',
-       'DEF_OUTPUT_SOLUTION',
-       'DEF_OUTPUT_OPTIMAL_SOLUTION',
-       'DEF_OUTPUT_END',
        'NEWLINE',
        'OBJECTIVE',
        'ALL_DIFFERENT_CONSTRAINT',
        'SYMBOL',
+       'MULTILINE_STRING',
+       'STRING',
+       'OUTPUT',
     )
     
     # Regular expression rules for simple tokens
@@ -326,20 +329,25 @@ class SatLexer:
         t.lexer.lineno += len(t.value) - len(v)
         pass
 
-    @lex.TOKEN(re.escape(Sat.SCOPE_BEGIN) + r'\|.*')
-    def t_DEF_OUTPUT_BEGIN(self, t):
+    @lex.TOKEN(r'|'.join(re.escape(x) for x in Sat.SCOPES))
+    def t_OUTPUT(self, t):
         return t
 
-    @lex.TOKEN(re.escape(Sat.SCOPE_SOLUTION) + r'\|.*')
-    def t_DEF_OUTPUT_SOLUTION(self, t):
+    def t_MULTILINE_STRING(self, t):
+        r'\<\<\<\s*\n(.|\n)*?\>\>\>'
+        t.lexer.lineno += t.value.count('\n')
+        value = t.value[3:-3]
+        value.strip(' ')
+        if value[0] == '\n':
+            value = value[1:]
+        if value[-1] == '\n':
+            value = value[:-1]
+        t.value = value
         return t
 
-    @lex.TOKEN(re.escape(Sat.SCOPE_OPTIMAL_SOLUTION) + r'\|.*')
-    def t_DEF_OUTPUT_OPTIMAL_SOLUTION(self, t):
-        return t
-
-    @lex.TOKEN(re.escape(Sat.SCOPE_END) + r'\|.*')
-    def t_DEF_OUTPUT_END(self, t):
+    def t_STRING(self, t):
+        r'\".*\"|\'([^\']|(?<=\\)\')*\''
+        t.value = t.value[1:-1]
         return t
 
     t_ignore  = ' \t'
@@ -408,14 +416,11 @@ class SatParser:
 
     ### OUTPUT DEFINITION
     def p_output_definition(self, p):
-        '''output_definition :
-                             | DEF_OUTPUT_BEGIN
-                             | DEF_OUTPUT_SOLUTION
-                             | DEF_OUTPUT_OPTIMAL_SOLUTION
-                             | DEF_OUTPUT_END
+        '''output_definition : OUTPUT STRING
+                             | OUTPUT MULTILINE_STRING
         '''
-        scope = p[1][0]
-        output_line = p[1].lstrip()[2:]
+        scope = p[1]
+        output_line = p[2]
         p[0] = self.sat.define_sat_output(p, scope, output_line)
         
     ### DOMAIN DEFINITION

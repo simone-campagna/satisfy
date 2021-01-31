@@ -1,43 +1,52 @@
 #!/usr/bin/env satisfy
-<|Solve the following cryptarithm:
-<|   ab * c == dbe
-<|    +   -      -
-<|  fcb / b ==  ag
-<|  ______________
-<|
-<|  dda + g == ddh
-<|
-<|where a, b, c, d, e, f, g, h are different digits.
-<|
+
+[begin] <<<
+Solve the following cryptarithm:
+
+   AB * C == DBE
+    +   -      -
+  FCB / B ==  AG
+  ______________
+
+  DDA + G == DDH
+
+where A, B, C, D, E, F, G, H are different digits.
+
+>>>
 
 # Define problem variables with their domain:
-a, b, c, d, e, f, g, h :: [0:9]
+A, B, C, D, E, F, G, H :: [0:9]
 
 # Define useful macros:
-ab := 10*a + b
-dbe := 100*d + 10*b + e
-fcb := 100*f + 10*c + b
-ag := 10*a + g
-dda := 100*d + 10*d + a
-ddh := 100*d + 10*d + h
+AB := 10*A + B
+DBE := 100*D + 10*B + E
+FCB := 100*F + 10*C + B
+AG := 10*A + G
+DDA := 100*D + 10*D + A
+DDH := 100*D + 10*D + H
 
 # Solution output:
-!|=== solution [{_stats.count:2d}]:
-!|    {ab} * {c} == {dbe}
-!|     +   -      -
-!|   {fcb} / {b} ==  {ag}
-!|   ______________
-!|
-!|   {dda} + {g} == {ddh}
-!|
+[solution] <<<
+=== solution [{_stats.count:2d}]:
+
+    {AB} * {C} == {DBE}
+     +   -      -
+   {FCB} / {B} ==  {AG}
+   ______________
+
+   {DDA} + {G} == {DDH}
+
+>>>
 
 # constraints:
-all_different(a, b, c, d, e, f, g, h)
+all_different(A, B, C, D, E, F, G, H)
 
-ab * c == dbe
-fcb / b ==  ag
-dda + g == ddh
+# horizontal:
+AB * C == DBE
+FCB / B ==  AG
+DDA + G == DDH
 
-ab + fcb == dda
-c - b == g
-dbe - ag == ddh
+# vertical:
+AB + FCB == DDA
+C - B == G
+DBE - AG == DDH

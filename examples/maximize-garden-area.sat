@@ -1,35 +1,40 @@
 #!/usr/bin/env satisfy
-# Lines beginning with <| are show at the beginning:
-<|A rectangular garden is to be constructed using a rock wall as one side of the garden,
-<|and wire fencing for the other three sides.
-<|        y
-<|   +-----------+
-<|   |           |
-<|   |           | x
-<|   |           |
-<|   +###########+
-<|       rock 
-<|Given  100 m of wire fencing, determine the dimensions that would create a garden of
-<|maximum area. What is the maximum area?
-<|
 
-# Lines beginning with !| are shown for each found solution:
-!|solution[{_stats.count:2d}]: x={x} y={y} area={area} [elapsed: {_stats.elapsed:.2f}s]
+# Print a description of the problem:
+[begin] <<<
+A rectangular garden is to be constructed using a rock wall as one side of the garden,
+and wire fencing for the other three sides.
+        y
+   +-----------+
+   |           |
+   |           | x
+   |           |
+   +###########+
+       rock 
+Given  100 m of wire fencing, determine the dimensions that would create a garden of
+maximum area. What is the maximum area?
 
-# Lines beginning with $| are shown only for optimization problems:
-$|=== {_optimal} solution:
-$|
-$|        {y:^3d}
-$|   +-----------+
-$|   |           |
-$|   |           | {x:^3d} [area: {area}]
-$|   |           |
-$|   +###########+
-$|       rock 
-$|
+>>>
 
-# Lines beginning with >| are show at the end:
->|All done! [elapsed: {_stats.elapsed:.2f}s]
+# Print a line for each found solution:
+[solution] "solution[{_stats.count:2d}]: x={x} y={y} area={area} [elapsed: {_stats.elapsed:.2f}s]"
+
+# Print the optimal solution:
+[optimal-solution] <<<
+=== {_optimal} solution:
+
+        {y:^3d}
+   +-----------+
+   |           |
+   |           | {x:^3d} [area: {area}]
+   |           |
+   +###########+
+       rock 
+
+>>>
+
+# Print something at the end:
+[end] "All done! [elapsed: {_stats.elapsed:.2f}s]"
 
 ### DOMAIN definition:
 D = [0:100]
