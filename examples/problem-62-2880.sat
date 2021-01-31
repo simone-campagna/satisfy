@@ -1,8 +1,22 @@
 D = [4:40]
 
+<|Find x, y, x in {{4, 5, ..., 40}} so that
+<|  x + y + z == 62
+<|  x * y * z == 2880
+<|
 x, y, z :: D
+
+v_sum := x + y + z
+v_prod := x * y * z
 
 x < y
 y < z
-x + y + z == 62
-x * y * z == 2880
+v_sum == 62
+v_prod == 2880
+
+!|=== solution[{_stats.count}]:
+!|x = {x}
+!|y = {y}
+!|z = {z}
+#!|x + y + z == {v_sum}
+#!|x * y * z == {v_prod}
