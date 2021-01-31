@@ -1,4 +1,5 @@
 import abc
+import argparse
 import cProfile
 import contextlib
 import enum
@@ -9,13 +10,17 @@ import pstats
 import sys
 
 from ..solver import State
+from ..utils import INFINITY
 
 __all__ = [
     'ShowMode',
     'print_model',
     'print_solve_stats',
     'print_optimization_stats',
-    'iter_solutions',
+    'solve',
+    'sat_solve',
+    'add_solve_arguments',
+    'solve_arguments',
 ]
 
 
@@ -251,3 +256,141 @@ def solve(model, timeout, limit, profile=False, show_stats=False, show_model=Fal
             renderer.show_optimization_result()
             if show_stats:
                 renderer.show_stats()
+
+
+def sat_solve(sat, timeout, limit, profile=False, show_stats=False, show_model=False, show_mode=ShowMode.QUIET,
+              output_file=sys.stdout, render_solution=None):
+    renderer_class = DefaultTextRenderer
+    if show_mode is ShowMode.QUIET:
+        renderer_class = QuietTextRenderer
+        render_solution = None
+    elif show_mode is ShowMode.BRIEF:
+        renderer_class = CompactTextRenderer
+        render_solution = None
+    elif show_mode is ShowMode.COMPACT:
+        renderer_class = CompactTextRenderer
+    elif show_mode is ShowMode.JSON:
+        renderer_class = JsonRenderer
+        render_solution = None
+    else:
+        renderer_class = DefaultTextRenderer
+
+    def maybe_print(renderer, value):
+        if value:
+            print(value)
+
+    kwargs = {}
+    if limit is not None:
+        kwargs['limit'] = limit
+    if timeout is not None:
+        kwargs['timeout'] = timeout
+    with sat.solve(**kwargs) as model_solver:
+        with renderer_class(sat, model_solver, render_solution, output_file=output_file) as renderer:
+            if show_model:
+                renderer.show_model()
+            maybe_print(renderer, sat.output_begin(model_solver))
+
+            with profiling(profile):
+                for solution in model_solver:
+                    maybe_print(renderer, sat.output_solution(model_solver, solution))
+            if sat.has_objectives():
+                maybe_print(renderer, sat.output_optimal_solution(model_solver))
+            maybe_print(renderer, sat.output_end(model_solver))
+            if show_stats:
+                renderer.show_stats()
+
+
+def add_solve_arguments(parser, default_show_model=False, default_show_stats=False):
+    parser.add_argument(
+        "-t", "--timeout",
+        metavar="S",
+        default=None,
+        nargs='?', const=INFINITY,
+        type=float,
+        help="solve timeout")
+
+    parser.add_argument(
+        "-l", "--limit",
+        metavar="N",
+        default=None,
+        nargs='?', const=INFINITY,
+        type=int,
+        help="max number of solutions")
+
+    def _default(b_value):
+        if b_value:
+            return " (default)"
+        return ""
+
+    show_model_group = parser.add_mutually_exclusive_group()
+    show_model_group.add_argument(
+        "-m", "--show-model",
+        dest='show_model',
+        default=default_show_model,
+        action="store_true",
+        help="show model variables and constraints" + _default(default_show_model))
+    show_model_group.add_argument(
+        "-M", "--no-show-model",
+        dest='show_model',
+        default=default_show_model,
+        action="store_false",
+        help="show model variables and constraints" + _default(not default_show_model))
+
+    show_stats_group = parser.add_mutually_exclusive_group()
+    show_stats_group.add_argument(
+        "-s", "--show-stats",
+        dest='show_stats',
+        default=default_show_stats,
+        action="store_true",
+        help="show solver statistics" + _default(default_show_stats))
+    show_stats_group.add_argument(
+        "-S", "--no-show-stats",
+        dest='show_stats',
+        default=default_show_stats,
+        action="store_false",
+        help="show solver statistics" + _default(not default_show_stats))
+
+    profile_group = parser.add_mutually_exclusive_group()
+    profile_group.add_argument(
+        "-p", "--profile",
+        dest='profile',
+        action="store_true", default=False,
+        help="enable profiling")
+    profile_group.add_argument(
+        "-P", "--no-profile",
+        dest='profile',
+        action="store_false", default=False,
+        help="disable profiling")
+
+    show_mode_group = parser.add_argument_group("show solution mode")
+    show_mode_kwargs = {'dest': 'show_mode', 'default': ShowMode.DEFAULT}
+    show_mode_group.add_argument(
+        '-c', '--compact',
+        action='store_const', const=ShowMode.COMPACT,
+        help='compact output',
+        **show_mode_kwargs)
+    show_mode_group.add_argument(
+        '-b', '--brief',
+        action='store_const', const=ShowMode.BRIEF,
+        help='minimal output',
+        **show_mode_kwargs)
+    show_mode_group.add_argument(
+        '-q', '--quiet',
+        action='store_const', const=ShowMode.QUIET,
+        help='do not show solutions',
+        **show_mode_kwargs)
+    show_mode_group.add_argument(
+        '-j', '--json',
+        action='store_const', const=ShowMode.JSON,
+        help='JSON output',
+        **show_mode_kwargs)
+
+    parser.add_argument(
+        '-o', '--output-file',
+        default=sys.stdout,
+        type=argparse.FileType('w'),
+        help='output filename')
+
+
+def solve_arguments():
+    return ["timeout", "limit", "show_model", "show_stats", "profile", "show_mode", "output_file"]

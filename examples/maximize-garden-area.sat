@@ -1,22 +1,47 @@
-# A rectangular garden is to be constructed using a rock wall as one side of the garden,
-# and wire fencing for the other three sides.
-!        {y:^3d}
-!   +-----------+
-!   |           |          area:  {area}
-!   |           | {x:^3d}
-!   |           |          fence: {fence_length}
-!   +###########+
-!       rock 
-#
-# Given  100 m of wire fencing, determine the dimensions that would create a garden of
-# maximum area. What is the maximum area?
+# Lines beginning with <| are show at the beginning:
+<|A rectangular garden is to be constructed using a rock wall as one side of the garden,
+<|and wire fencing for the other three sides.
+<|        y
+<|   +-----------+
+<|   |           |
+<|   |           | x
+<|   |           |
+<|   +###########+
+<|       rock 
+<|Given  100 m of wire fencing, determine the dimensions that would create a garden of
+<|maximum area. What is the maximum area?
+<|
 
+# Lines beginning with !| are shown for each found solution:
+!|solution[{_stats.count:2d}]: x={x} y={y} area={area} [elapsed: {_stats.elapsed:.2f}s]
+
+# Lines beginning with $| are shown only for optimization problems:
+$|=== {_optimal} solution:
+$|
+$|        {y:^3d}
+$|   +-----------+
+$|   |           |
+$|   |           | {x:^3d} [area: {area}]
+$|   |           |
+$|   +###########+
+$|       rock 
+$|
+
+# Lines beginning with >| are show at the end:
+>|All done! [elapsed: {_stats.elapsed:.2f}s]
+
+### DOMAIN definition:
 D = [0:100]
+
+### VARIABLES definition:
 x, y :: D
 
+### MACROS definition:
 area := x * y
 fence_length := 2 * x + y
 
+### CONSTRAINTS:
 fence_length == 100
 
+### OPTIMIZATION:
 maximize(area)

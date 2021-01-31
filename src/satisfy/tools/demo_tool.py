@@ -6,7 +6,7 @@ import argcomplete
 
 from ..utils import INFINITY
 
-from .cli_utils import ShowMode
+from .cli_utils import add_solve_arguments, solve_arguments
 
 from .demo_cryptarithm import (
     cryptarithm,
@@ -47,6 +47,7 @@ from .demo_four_rings import (
 )
 from .sat_tool import (
     sat_tool,
+    create_sat_parser,
 )
 
 __all__ = [
@@ -92,12 +93,12 @@ Satisfy tool - show some examples.
 
 The command has bash autocompletion; to enable it run this command:
 
-  $ eval "$(register-python-argcomplete satisfy)"
+  $ eval "$(register-python-argcomplete satisfy-demo)"
 
 """,
         **common_args)
 
-    solve_args = ["timeout", "limit", "show_model", "show_stats", "profile", "show_mode", "output_file"]
+    solve_args = solve_arguments()
 
     subparsers = top_level_parser.add_subparsers()
     top_level_parser.set_defaults(
@@ -308,99 +309,6 @@ Solve the 4-rings problem:
         help='allows not unique variable values',
         **fr_unique_kwargs)
 
-    sat_parser = subparsers.add_parser(
-        "sat",
-        description="""\
-Solve a generic model described as SAT file.
-
-The SAT syntax is simple; for instance:
-
-  ### DOMAIN DEFINITION ######################################
-  # you can optionally create domains with a given name;
-  # domain definition can contain
-  # - integers [1, 2, 3]
-  # - ranges [10:15, 20:30]
-  # - ranges with strides [1:100:3]
-  
-  # create domain 'D0' containing [1, 2, 10, 11, 12, 13, 14, 15]
-  D0 = [1, 2, 10:15]
-  
-  ### VARIABLE DEFINITION ####################################
-  # you must define the variables that you're going to use
-  # in constraints and optimization objectives;
-  # the variable definition requires the variable domain:
-  # - a named domain
-  # - a domain expression
-  # you can declare a list of variables with the same domain
-  
-  # create variable 'x' with domain 'D0'
-  x :: D0
-  
-  # create variables 'y', 'z' with domain [1, 3, 5]
-  y, z :: [1:5:2]
-  
-  # optionally create macros
-  difference := x - z
-  
-  ### CONSTRAINTS ############################################
-  # you can create constraints:
-  
-  # create constraint x + y + z > 10
-  x + y + z > 10
-  
-  # create constraint x * y * z < 100
-  x * y * z < 100
-  
-  # create all_different constraint
-  all_different(x, y, z)
-  
-  ### OPTIMIZATION ###########################################
-  # you can optionally set optimization objectives:
-  # - minimize
-  # - maximize
-  
-  maximize(difference)
-  
-  ### OPTIONS ################################################
-  # you can optionally set solver options:
-  # - select_var [SelectVar]
-  # - select_value [SelectValue]
-  # - limit [int]
-  # - timeout [float]
-  
-  # set select_var = SelectVar.in_order
-  option(select_var, in_order)
-  
-  # set select_value = SelectValue.random
-  option(select_value, random)
-  
-  # set limit = 3
-  # option(limit, 3)
-  
-  # set timeout = 0.5
-  # option(timeout, 0.5)
-  
-  ### OUTPUT #################################################
-  # You can optionally set output lines; for each solution
-  # all the output lines are shown. Variables in {...} are
-  # substituted, according to python string formatting.
-  !x is {x:2d}
-  !y is {y:2d}
-  !z is {z:2d}
-  !x - z == {difference}
-
-""",
-        **common_args)
-    sat_parser.set_defaults(
-        function=sat_tool,
-        function_args=["input_file"] + solve_args)
-
-    sat_parser.add_argument(
-        'input_file',
-        type=argparse.FileType('r'),
-        default=sys.stdin,
-        help='SAT input file (defaults to STDIN)')
-
     for parser in [knapsack_parser, graph_labeling_parser, ascii_map_coloring_parser, sudoku_parser]:
         parser.add_argument(
             "-i", "--input-file",
@@ -408,106 +316,15 @@ The SAT syntax is simple; for instance:
             default=None,
             type=argparse.FileType('r'),
             help="input filename")
-# 
-#     solve_parsers = [sudoku_parser, queens_parser, einstein_parser, knapsack_parser,
-#                      graph_labeling_parser, ascii_map_coloring_parser,
-#                      cryptarithm_parser, nonogram_parser, four_rings_parser, sat_parser]
+
     solve_parsers = [knapsack_parser, nonogram_parser, cryptarithm_parser, einstein_parser,
                      graph_labeling_parser, ascii_map_coloring_parser, queens_parser,
-                     sudoku_parser, four_rings_parser, sat_parser]
+                     sudoku_parser, four_rings_parser]
 
     for parser in solve_parsers:
-        parser.add_argument(
-            "-t", "--timeout",
-            metavar="S",
-            default=None,
-            nargs='?', const=INFINITY,
-            type=float,
-            help="solve timeout")
+        add_solve_arguments(parser, default_show_stats=True)
 
-        parser.add_argument(
-            "-l", "--limit",
-            metavar="N",
-            default=None,
-            nargs='?', const=INFINITY,
-            type=int,
-            help="max number of solutions")
-
-        def _default(b_value):
-            if b_value:
-                return " (default)"
-            return ""
-
-        show_model_group = parser.add_mutually_exclusive_group()
-        default_show_model = False
-        show_model_group.add_argument(
-            "-m", "--show-model",
-            dest='show_model',
-            default=default_show_model,
-            action="store_true",
-            help="show model variables and constraints" + _default(default_show_model))
-        show_model_group.add_argument(
-            "-M", "--no-show-model",
-            dest='show_model',
-            default=default_show_model,
-            action="store_false",
-            help="show model variables and constraints" + _default(not default_show_model))
-
-        show_stats_group = parser.add_mutually_exclusive_group()
-        default_show_stats = True
-        show_stats_group.add_argument(
-            "-s", "--show-stats",
-            dest='show_stats',
-            default=default_show_stats,
-            action="store_true",
-            help="show solver statistics" + _default(default_show_stats))
-        show_stats_group.add_argument(
-            "-S", "--no-show-stats",
-            dest='show_stats',
-            default=default_show_stats,
-            action="store_false",
-            help="show solver statistics" + _default(not default_show_stats))
-
-        profile_group = parser.add_mutually_exclusive_group()
-        profile_group.add_argument(
-            "-p", "--profile",
-            dest='profile',
-            action="store_true", default=False,
-            help="enable profiling")
-        profile_group.add_argument(
-            "-P", "--no-profile",
-            dest='profile',
-            action="store_false", default=False,
-            help="disable profiling")
-
-        show_mode_group = parser.add_argument_group("show solution mode")
-        show_mode_kwargs = {'dest': 'show_mode', 'default': ShowMode.DEFAULT}
-        show_mode_group.add_argument(
-            '-c', '--compact',
-            action='store_const', const=ShowMode.COMPACT,
-            help='compact output',
-            **show_mode_kwargs)
-        show_mode_group.add_argument(
-            '-b', '--brief',
-            action='store_const', const=ShowMode.BRIEF,
-            help='minimal output',
-            **show_mode_kwargs)
-        show_mode_group.add_argument(
-            '-q', '--quiet',
-            action='store_const', const=ShowMode.QUIET,
-            help='do not show solutions',
-            **show_mode_kwargs)
-        show_mode_group.add_argument(
-            '-j', '--json',
-            action='store_const', const=ShowMode.JSON,
-            help='JSON output',
-            **show_mode_kwargs)
-
-        parser.add_argument(
-            '-o', '--output-file',
-            default=sys.stdout,
-            type=argparse.FileType('w'),
-            help='output filename')
+    create_sat_parser(subparsers=subparsers, **common_args)
 
     argcomplete.autocomplete(top_level_parser)
     namespace = top_level_parser.parse_args()

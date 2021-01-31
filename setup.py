@@ -36,7 +36,8 @@ if __name__ == "__main__":
         package_data={},
         entry_points={
             'console_scripts': [
-                'satisfy=satisfy.tools.tool:main'
+                'satisfy-demo=satisfy.tools.demo_tool:main',
+                'satisfy=satisfy.tools.sat_tool:main',
             ],
         },
         classifiers=[

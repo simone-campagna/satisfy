@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-import collections.abc
 import itertools
 import logging
 import operator
+import re
 
 import ply.lex as lex
 import ply.yacc as yacc
@@ -22,6 +22,7 @@ __all__ = [
 ]
 
 LOG = logging.getLogger()
+
 
 class SatSyntaxError(RuntimeError):
     pass
@@ -72,23 +73,9 @@ def make_binop(sat, l, op, r):
 
 
 
-class SatProxy(collections.abc.Mapping):
-    def __init__(self, sat, solution):
+class SatProxy:
+    def __init__(self, sat):
         self.__sat = sat
-        self.__solution = solution
-
-    def __getitem__(self, key):
-        return self.__solution(key)
-
-    def __len__(self):
-        return len(self.__solution)
-
-    def __iter__(self):
-        yield from self.__solution
-
-    @property
-    def solution(self):
-        return self.__solution
 
     @property
     def variables(self):
@@ -102,14 +89,12 @@ class SatProxy(collections.abc.Mapping):
     def objectives(self):
         return list(self.__sat.objectives())
 
-    def __repr__(self):
-        return repr(self.__solution)
-
-    def __str__(self):
-        return str(self.__solution)
-
 
 class Sat(Model):
+    SCOPE_BEGIN = '<'
+    SCOPE_SOLUTION = '!'
+    SCOPE_OPTIMAL_SOLUTION = '$'
+    SCOPE_END = '>'
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.domains = {}
@@ -119,25 +104,67 @@ class Sat(Model):
         self.__select_value = SelectValue.min_value
         self.__limit = None
         self.__timeout = None
-        self.output = []
+        self.output = {
+            self.SCOPE_BEGIN: [],
+            self.SCOPE_SOLUTION: [],
+            self.SCOPE_OPTIMAL_SOLUTION: [],
+            self.SCOPE_END: [],
+        }
 
     def get_symbol(self, symbol):
         return self.vars[symbol]
 
-    def render_solution(self, solution):
-        if self.output:
-            fmt = '\n'.join(self.output)
+    def output_begin(self, model_solver):
+        output = self.output[self.SCOPE_BEGIN]
+        if output:
+            fmt = '\n'.join(output)
             data = {
-                '_': SatProxy(self, solution),
+                '_model': SatProxy(self),
             }
-            for macro, expression in self.macros.items():
-                data[macro] = expression.evaluate(solution)
-            return fmt.format(**solution, **data)
-        else:
-            return solution
+            return fmt.format(**data)
 
-    def define_sat_output(self, p, output):
-        self.output.append(output)
+    def output_solution(self, model_solver, solution):
+        output = self.output[self.SCOPE_SOLUTION]
+        if output:
+            fmt = '\n'.join(output)
+            stats = model_solver.stats
+            macros = {}
+            for macro, expression in self.macros.items():
+                macros[macro] = expression.evaluate(solution)
+            return fmt.format(_solution=solution, _stats=stats, **solution, **macros)
+
+    def output_optimal_solution(self, model_solver):
+        output = self.output[self.SCOPE_OPTIMAL_SOLUTION]
+        if output:
+            fmt = '\n'.join(output)
+            stats = model_solver.stats
+            optimization_result = model_solver.get_optimization_result()
+            solution = optimization_result.solution
+            macros = {}
+            for macro, expression in self.macros.items():
+                macros[macro] = expression.evaluate(solution)
+            if optimization_result.is_optimal:
+                optimal = 'optimal'
+            else:
+                optimal = 'sub-optimal'
+            data = {
+                '_solution': solution,
+                '_stats': stats,
+                '_is_optimal': optimization_result.is_optimal,
+                '_optimal': optimal,
+                '_opt': optimization_result,
+            }
+            return fmt.format(**solution, **macros, **data)
+
+    def output_end(self, model_solver):
+        output = self.output[self.SCOPE_END]
+        if output:
+            fmt = '\n'.join(output)
+            stats = model_solver.stats
+            return fmt.format(_stats=stats)
+
+    def define_sat_output(self, p, scope, output):
+        self.output[scope].append(output)
 
     def define_sat_domain(self, p, name, domain):
         # print("DEFINE DOMAIN {} := {!r}".format(name, domain))
@@ -230,7 +257,10 @@ class SatLexer:
        'DEF_VAR',
        'DEF_MACRO',
        'DEF_OPTION',
-       'DEF_OUTPUT',
+       'DEF_OUTPUT_BEGIN',
+       'DEF_OUTPUT_SOLUTION',
+       'DEF_OUTPUT_OPTIMAL_SOLUTION',
+       'DEF_OUTPUT_END',
        'NEWLINE',
        'OBJECTIVE',
        'ALL_DIFFERENT_CONSTRAINT',
@@ -296,9 +326,20 @@ class SatLexer:
         t.lexer.lineno += len(t.value) - len(v)
         pass
 
-    def t_DEF_OUTPUT(self, t):
-        r'\!.*'
-        v = t.value.rstrip('\n')
+    @lex.TOKEN(re.escape(Sat.SCOPE_BEGIN) + r'\|.*')
+    def t_DEF_OUTPUT_BEGIN(self, t):
+        return t
+
+    @lex.TOKEN(re.escape(Sat.SCOPE_SOLUTION) + r'\|.*')
+    def t_DEF_OUTPUT_SOLUTION(self, t):
+        return t
+
+    @lex.TOKEN(re.escape(Sat.SCOPE_OPTIMAL_SOLUTION) + r'\|.*')
+    def t_DEF_OUTPUT_OPTIMAL_SOLUTION(self, t):
+        return t
+
+    @lex.TOKEN(re.escape(Sat.SCOPE_END) + r'\|.*')
+    def t_DEF_OUTPUT_END(self, t):
         return t
 
     t_ignore  = ' \t'
@@ -367,9 +408,15 @@ class SatParser:
 
     ### OUTPUT DEFINITION
     def p_output_definition(self, p):
-        'output_definition : DEF_OUTPUT'
-        output_line = p[1].lstrip()[1:]
-        p[0] = self.sat.define_sat_output(p, output_line)
+        '''output_definition :
+                             | DEF_OUTPUT_BEGIN
+                             | DEF_OUTPUT_SOLUTION
+                             | DEF_OUTPUT_OPTIMAL_SOLUTION
+                             | DEF_OUTPUT_END
+        '''
+        scope = p[1][0]
+        output_line = p[1].lstrip()[2:]
+        p[0] = self.sat.define_sat_output(p, scope, output_line)
         
     ### DOMAIN DEFINITION
     def p_domain_definition(self, p):
