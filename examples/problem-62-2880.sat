@@ -1,3 +1,4 @@
+#!/usr/bin/env satisfy
 D = [4:40]
 
 <|Find x, y, x in {{4, 5, ..., 40}} so that
