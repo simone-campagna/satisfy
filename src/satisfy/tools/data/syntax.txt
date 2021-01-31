@@ -1,0 +1,120 @@
+SAT syntax
+==========
+
+The SAT syntax is quite simple:
+  - declare variables and their domain
+  - add constraints
+  - optionally set an optimization objective
+  - print solutions
+
+Declare variables and their domains
+----------------------------------
+
+Variables can be declared using the :: syntax; for instance
+
+  x :: [0, 1, 2, 3, 4]
+
+declares the variable 'x' with domain [0, 1, 2, 3, 4].
+
+Multiple variables with the same domain can be declared together:
+
+  x, y, z :: [0:4]
+
+Domain definition allows ranges: the following declaration is equivalent to the
+previous one:
+
+  x, y, z :: [0:4]
+
+The following declaration declares a variable 'w' with domain
+[0, 1, 2, 5, 10, 12, 14, 16, 18, 20]:
+
+  w :: [0:2, 5, 10:20:2]
+
+Domains can also be named:
+
+  D = [0:2, 5, 10:20:2]
+  w :: D
+
+Add constraints
+---------------
+
+A constraint is an expression involving declared variables:
+
+  x * y * z < 100
+  x + y == 20
+
+The all_different(...) constraints forces the variables to have different
+values:
+
+  all_different(x, y, z)
+
+Sometimes an expression must be repeated more times:
+
+  x * y * z < 100
+  x * y * z - w = 10
+
+In this case, a macro can be used. A macro is simply an alias for an expression:
+
+  xyz := x * y * z
+
+  xyz < 100
+  xyz - w = 10
+
+Add optimization objectives
+---------------------------
+
+Optimization objectives such as minimize(...) or maximize(...) accept an
+expression as argument:
+
+  maximize(x - y)
+  minimize(x - z)
+
+Output
+------
+
+The SAT syntax allow four different output statements:
+
+ - [begin] to print something before the solver execution
+ - [end] to print something after the solver execution
+ - [solution] to print something for each found solution
+ - [optimal-solution] to print something for the optimal solution found
+
+The [optimal-solution] statement has effect only if some optimization objective
+is set.
+
+The print statements accepts single line strings, for instance
+  [begin] "Hello,"
+  [begin] '   world!'
+
+or multiline strings, which are delimited by <<< and >>>
+  [begin] <<<
+  Hello,
+     world!
+  >>>
+
+The strings can contain string substitutions with the python syntax; for
+instance:
+
+  [solution] <<<
+  === solution[{_count}]:
+    x = {x}
+    y = {y}
+    z = {z}
+    x * y * z = {xyz}
+  >>>
+
+The following expansions are available:
+  + {_MODEL} (contains variables, macros, constraints, objectives)
+  + {_COUNT} (number of found solutions, including the current one)
+  + {_ELAPSED} (elapsed solve time)
+  + {_STATE} ('RUNNING'|'DONE'|'INTERRUPT_TIMEOUT'|'INTERRUPT_LIMIT')
+
+Moreover, the [solution] and [optimal_solution] statements also accept:
+  + all the declared variables and macros
+  + {_INDEX} (== _COUNT - 1)
+  + {_SOLUTION}
+
+Finally, the [optimal-solution] statement also accepts:
+  + {_INDEX} (== _COUNT - 1)
+  + {_IS_OPTIMAL} (True|False)
+  + {_OPTIMAL} ('optimal'|'sub-optimal')

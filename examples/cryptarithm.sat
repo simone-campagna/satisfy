@@ -27,7 +27,7 @@ DDH := 100*D + 10*D + H
 
 # Solution output:
 [solution] <<<
-=== solution [{_stats.count:2d}]:
+=== solution [{_COUNT:2d}]:
 
     {AB} * {C} == {DBE}
      +   -      -

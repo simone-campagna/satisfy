@@ -17,11 +17,11 @@ maximum area. What is the maximum area?
 >>>
 
 # Print a line for each found solution:
-[solution] "solution[{_stats.count:2d}]: x={x} y={y} area={area} [elapsed: {_stats.elapsed:.2f}s]"
+[solution] "solution[{_COUNT:2d}]: x={x} y={y} area={area} [elapsed: {_ELAPSED:.2f}s]"
 
 # Print the optimal solution:
 [optimal-solution] <<<
-=== {_optimal} solution:
+=== {_OPTIMAL} solution:
 
         {y:^3d}
    +-----------+
@@ -34,7 +34,7 @@ maximum area. What is the maximum area?
 >>>
 
 # Print something at the end:
-[end] "All done! [elapsed: {_stats.elapsed:.2f}s]"
+[end] "All done! [elapsed: {_ELAPSED:.2f}s]"
 
 ### DOMAIN definition:
 D = [0:100]

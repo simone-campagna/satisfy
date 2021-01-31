@@ -4,6 +4,7 @@ import itertools
 import logging
 import operator
 import re
+import types
 
 import ply.lex as lex
 import ply.yacc as yacc
@@ -77,15 +78,27 @@ class SatProxy:
 
     @property
     def variables(self):
-        return dict(self.__sat.variables())
+        return {
+            var_name: list(domain) for var_name, domain in self.__sat.variables().items()
+        }
+
+    @property
+    def macros(self):
+        return {
+            macro: str(expression) for macro, expression in self.__sat.macros().items()
+        }
 
     @property
     def constraints(self):
-        return list(self.__sat.constraints())
+        return [
+            str(constraint) for constraint in self.__sat.constraints()
+        ]
 
     @property
     def objectives(self):
-        return list(self.__sat.objectives())
+        return [
+            str(objective) for objective in self.__sat.objectives()
+        ]
 
 
 class Sat(Model):
@@ -101,9 +114,9 @@ class Sat(Model):
     )
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.domains = {}
-        self.vars = {}
-        self.macros = {}
+        self.__domains = {}
+        self.__vars = {}
+        self.__macros = {}
         self.__select_var = SelectVar.max_bound
         self.__select_value = SelectValue.min_value
         self.__limit = None
@@ -115,16 +128,31 @@ class Sat(Model):
             self.SCOPE_END: [],
         }
 
+    def domains(self):
+        return types.MappingProxyType(self.__domains)
+
+    def vars(self):
+        return types.MappingProxyType(self.__vars)
+
+    def macros(self):
+        return types.MappingProxyType(self.__macros)
+
     def get_symbol(self, symbol):
-        return self.vars[symbol]
+        return self.__vars[symbol]
+
+    def _get_data(self, model_solver):
+        return {
+            '_MODEL': SatProxy(self),
+            '_STATE': model_solver.state.state.name,
+            '_COUNT': model_solver.stats.count,
+            '_ELAPSED': model_solver.stats.elapsed,
+        }
 
     def output_begin(self, model_solver):
         output = self.output[self.SCOPE_BEGIN]
         if output:
             fmt = '\n'.join(output)
-            data = {
-                '_model': SatProxy(self),
-            }
+            data = self._get_data(model_solver)
             return fmt.format(**data)
 
     def output_solution(self, model_solver, solution):
@@ -133,9 +161,12 @@ class Sat(Model):
             fmt = '\n'.join(output)
             stats = model_solver.stats
             macros = {}
-            for macro, expression in self.macros.items():
+            for macro, expression in self.__macros.items():
                 macros[macro] = expression.evaluate(solution)
-            return fmt.format(_solution=solution, _stats=stats, **solution, **macros)
+            data = self._get_data(model_solver)
+            data['_SOLUTION'] = solution
+            data['_INDEX'] = data['_COUNT'] - 1
+            return fmt.format(**data, **solution, **macros)
 
     def output_optimal_solution(self, model_solver):
         output = self.output[self.SCOPE_OPTIMAL_SOLUTION]
@@ -145,57 +176,55 @@ class Sat(Model):
             optimization_result = model_solver.get_optimization_result()
             solution = optimization_result.solution
             macros = {}
-            for macro, expression in self.macros.items():
+            for macro, expression in self.__macros.items():
                 macros[macro] = expression.evaluate(solution)
             if optimization_result.is_optimal:
                 optimal = 'optimal'
             else:
                 optimal = 'sub-optimal'
-            data = {
-                '_solution': solution,
-                '_stats': stats,
-                '_is_optimal': optimization_result.is_optimal,
-                '_optimal': optimal,
-                '_opt': optimization_result,
-            }
-            return fmt.format(**solution, **macros, **data)
+            data = self._get_data(model_solver)
+            data['_SOLUTION'] = solution
+            data['_INDEX'] = data['_COUNT'] - 1
+            data['_IS_OPTIMAL'] = optimization_result.is_optimal
+            data['_OPTIMAL'] = optimal
+            return fmt.format(**data, **solution, **macros)
 
     def output_end(self, model_solver):
         output = self.output[self.SCOPE_END]
         if output:
             fmt = '\n'.join(output)
-            stats = model_solver.stats
-            return fmt.format(_stats=stats)
+            data = self._get_data(model_solver)
+            return fmt.format(**data)
 
     def define_sat_output(self, p, scope, output):
         self.output[scope].append(output)
 
     def define_sat_domain(self, p, name, domain):
         # print("DEFINE DOMAIN {} := {!r}".format(name, domain))
-        self.domains[name] = domain
+        self.__domains[name] = domain
         return domain
 
     def define_sat_vars(self, p, domain, *names):
         if isinstance(domain, str):
-            domain = self.domains[domain]
+            domain = self.__domains[domain]
         variables = []
         for name in names:
             # print("DEFINE VAR {} :: {!r}".format(name, domain))
             var = self.add_int_variable(domain, name=name)
-            self.vars[name] = var
+            self.__vars[name] = var
             variables.append(var)
         return variables
 
     def define_sat_macro(self, p, name, expression):
-        self.vars[name] = expression
-        self.macros[name] = expression
+        self.__vars[name] = expression
+        self.__macros[name] = expression
 
     def add_sat_constraint(self, p, constraint):
         self.add_constraint(constraint)
         return constraint
 
     def add_sat_all_different_constraint(self, p, constraint_type, var_list):
-        self.add_all_different_constraint([self.vars[var] for var in var_list])
+        self.add_all_different_constraint([self.__vars[var] for var in var_list])
         return var_list
 
     def add_sat_objective(self, p, objective_name, expression):
