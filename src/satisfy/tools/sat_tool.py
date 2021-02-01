@@ -36,9 +36,9 @@ class HelpSyntaxAction(argparse.Action):
         parser.exit(0)
 
 
-def sat_tool(input_file, timeout, limit, show_model, show_stats, profile, show_mode, output_file):
-    source = input_file.read()
-    model = sat_compile(source)
+def sat_tool(source_file, timeout, limit, show_model, show_stats, profile, show_mode, output_file, input_file):
+    source = source_file.read()
+    model = sat_compile(source, input_file=input_file, output_file=output_file)
     
     sat_solve(model, timeout=timeout, limit=limit,
           show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode, output_file=output_file)
@@ -58,8 +58,8 @@ The SAT syntax is simple; for instance:
 # ------------------------------------------------------------------------------
 # Print a description of the problem:
 [begin] <<<
-A rectangular garden is to be constructed using a rock wall as one side of the
-garden, and wire fencing for the other three sides.
+A rectangular garden is to be constructed using a rock wall as one side of the garden,
+and wire fencing for the other three sides.
         y
    +-----------+
    |           |
@@ -68,10 +68,13 @@ garden, and wire fencing for the other three sides.
    +###########+
        rock 
 
-Given  100 m of wire fencing, determine the dimensions that would create a
-garden of maximum area. What is the maximum area?
+Given N meters of wire fencing, determine the dimensions that would create a garden of
+maximum area. What is the maximum area?
 
 >>>
+
+# Read input parameter (fence length)
+N := [input] "How many meters of fence? "
 
 # Print a line for each found solution:
 [solution] "solution[{_COUNT:2d}]: x={x} y={y} area={area} [elapsed: {_ELAPSED:.2f}s]"
@@ -94,7 +97,7 @@ garden of maximum area. What is the maximum area?
 [end] "All done! [elapsed: {_ELAPSED:.2f}s]"
 
 ### DOMAIN definition:
-D = [0:100]
+D = [1:N]
 
 ### VARIABLES definition:
 x, y :: D
@@ -104,7 +107,7 @@ area := x * y
 fence_length := 2 * x + y
 
 ### CONSTRAINTS:
-fence_length == 100
+fence_length == N
 
 ### OPTIMIZATION:
 maximize(area)
@@ -119,15 +122,21 @@ The command has bash autocompletion; to enable it run this command:
         **kwargs)
     sat_parser.set_defaults(
         function=sat_tool,
-        function_args=["input_file"] + solve_arguments())
+        function_args=["source_file", "input_file"] + solve_arguments())
 
     sat_parser.add_argument(
-        'input_file',
+        'source_file',
         type=argparse.FileType('r'),
         default=sys.stdin,
-        help='SAT input file (defaults to STDIN)')
+        help='SAT source file (defaults to STDIN)')
 
     add_solve_arguments(sat_parser)
+    sat_parser.add_argument(
+        '-i', '--input-file',
+        default=sys.stdin,
+        type=argparse.FileType('r'),
+        help='input filename')
+
     sat_parser.add_argument(
         "-H", "--help-syntax",
         action=HelpSyntaxAction)

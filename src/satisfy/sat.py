@@ -4,11 +4,13 @@ import itertools
 import logging
 import operator
 import re
+import sys
 import types
 
 import ply.lex as lex
 import ply.yacc as yacc
  
+from .expression import Const
 from .model import Model
 from .solver import Solver, SelectVar, SelectValue
 from .objective import Maximize, Minimize
@@ -68,6 +70,15 @@ def make_value(sat, v):
     return v
 
 
+def make_const_value(sat, v):
+    if isinstance(v, str):
+        v = sat.get_symbol(v)
+        if not isinstance(v, Const):
+            raise SatSyntaxError("invalid non-const expression {}".format(v))
+        v = v.value
+    return v
+
+
 def make_binop(sat, l, op, r):
     return BINOP[op](make_value(sat, l), make_value(sat, r))
 
@@ -112,7 +123,7 @@ class Sat(Model):
         SCOPE_OPTIMAL_SOLUTION,
         SCOPE_END,
     )
-    def __init__(self, **kwargs):
+    def __init__(self, *, input_file=sys.stdin, output_file=sys.stdout, **kwargs):
         super().__init__(**kwargs)
         self.__domains = {}
         self.__vars = {}
@@ -121,12 +132,28 @@ class Sat(Model):
         self.__select_value = SelectValue.min_value
         self.__limit = None
         self.__timeout = None
+        self.input_file = input_file
+        self.output_file = output_file
         self.output = {
             self.SCOPE_BEGIN: [],
             self.SCOPE_SOLUTION: [],
             self.SCOPE_OPTIMAL_SOLUTION: [],
             self.SCOPE_END: [],
         }
+
+    def sat_input(self, prompt=None, value_type=int):
+        self.output_begin()
+        if prompt is not None:
+            self.sat_output(prompt, end='')
+        value = self.input_file.readline().rstrip('\n')
+        if value_type is not None:
+            value = value_type(value)
+        return value
+
+    def sat_output(self, text, **kwargs):
+        if text is not None:
+            print(text, file=self.output_file, **kwargs)
+            self.output_file.flush()
 
     def domains(self):
         return types.MappingProxyType(self.__domains)
@@ -140,61 +167,80 @@ class Sat(Model):
     def get_symbol(self, symbol):
         return self.__vars[symbol]
 
-    def _get_data(self, model_solver):
-        return {
+    def _get_data(self, *, model_solver=None, solution=None):
+        data = {
             '_MODEL': SatProxy(self),
-            '_STATE': model_solver.state.state.name,
-            '_COUNT': model_solver.stats.count,
-            '_ELAPSED': model_solver.stats.elapsed,
         }
+        if model_solver is not None:
+            data['_STATE'] = model_solver.state.state.name
+            data['_COUNT'] =  model_solver.stats.count
+            data['_ELAPSED'] = model_solver.stats.elapsed
+        if solution is not None:
+            data['_SOLUTION'] = solution
+            if '_COUNT' in data:
+                data['_INDEX'] = data['_COUNT'] - 1
+            for macro, expression in self.__macros.items():
+                data[macro] = expression.evaluate(solution)
+            for var_name, value in solution.items():
+                data[var_name] = value
+        return data
 
-    def output_begin(self, model_solver):
-        output = self.output[self.SCOPE_BEGIN]
+    def get_output(self, scope):
+        output = self.output[scope]
+        self.output[scope] = []
+        return output
+
+    def get_output_begin(self):
+        output = self.get_output(self.SCOPE_BEGIN)
         if output:
             fmt = '\n'.join(output)
-            data = self._get_data(model_solver)
+            data = self._get_data()
             return fmt.format(**data)
 
-    def output_solution(self, model_solver, solution):
-        output = self.output[self.SCOPE_SOLUTION]
+    def get_output_solution(self, model_solver, solution):
+        output = self.get_output(self.SCOPE_SOLUTION)
         if output:
             fmt = '\n'.join(output)
             stats = model_solver.stats
-            macros = {}
-            for macro, expression in self.__macros.items():
-                macros[macro] = expression.evaluate(solution)
-            data = self._get_data(model_solver)
+            data = self._get_data(model_solver=model_solver, solution=solution)
             data['_SOLUTION'] = solution
             data['_INDEX'] = data['_COUNT'] - 1
-            return fmt.format(**data, **solution, **macros)
+            return fmt.format(**data)
 
-    def output_optimal_solution(self, model_solver):
-        output = self.output[self.SCOPE_OPTIMAL_SOLUTION]
+    def get_output_optimal_solution(self, model_solver):
+        output = self.get_output(self.SCOPE_OPTIMAL_SOLUTION)
         if output:
             fmt = '\n'.join(output)
             stats = model_solver.stats
             optimization_result = model_solver.get_optimization_result()
             solution = optimization_result.solution
-            macros = {}
-            for macro, expression in self.__macros.items():
-                macros[macro] = expression.evaluate(solution)
             if optimization_result.is_optimal:
                 optimal = 'optimal'
             else:
                 optimal = 'sub-optimal'
-            data = self._get_data(model_solver)
-            data['_SOLUTION'] = solution
-            data['_INDEX'] = data['_COUNT'] - 1
+            data = self._get_data(model_solver=model_solver, solution=solution)
             data['_IS_OPTIMAL'] = optimization_result.is_optimal
             data['_OPTIMAL'] = optimal
-            return fmt.format(**data, **solution, **macros)
+            return fmt.format(**data)
 
-    def output_end(self, model_solver):
-        output = self.output[self.SCOPE_END]
+    def get_output_end(self, model_solver):
+        output = self.get_output(self.SCOPE_END)
         if output:
             fmt = '\n'.join(output)
-            data = self._get_data(model_solver)
+            data = self._get_data(model_solver=model_solver)
             return fmt.format(**data)
+
+    def output_begin(self):
+        self.sat_output(self.get_output_begin())
+
+    def output_solution(self, model_solver, solution):
+        self.sat_output(self.get_output_solution(model_solver, solution))
+
+    def output_optimal_solution(self, model_solver):
+        self.sat_output(self.get_output_optimal_solution(model_solver))
+
+    def output_end(self, model_solver):
+        self.sat_output(self.get_output_end(model_solver))
 
     def define_sat_output(self, p, scope, output):
         self.output[scope].append(output)
@@ -216,6 +262,8 @@ class Sat(Model):
         return variables
 
     def define_sat_macro(self, p, name, expression):
+        if isinstance(expression, int):
+            expression = Const(expression)
         self.__vars[name] = expression
         self.__macros[name] = expression
 
@@ -297,6 +345,7 @@ class SatLexer:
        'MULTILINE_STRING',
        'STRING',
        'OUTPUT',
+       'INPUT',
     )
     
     # Regular expression rules for simple tokens
@@ -360,6 +409,10 @@ class SatLexer:
 
     @lex.TOKEN(r'|'.join(re.escape(x) for x in Sat.SCOPES))
     def t_OUTPUT(self, t):
+        return t
+
+    def t_INPUT(self, t):
+        r'\[input\]'
         return t
 
     def t_MULTILINE_STRING(self, t):
@@ -452,10 +505,23 @@ class SatParser:
         output_line = p[2]
         p[0] = self.sat.define_sat_output(p, scope, output_line)
         
+    ### INPUT DEFINITION
+    def p_input_definition(self, p):
+        '''input_definition : INPUT STRING
+                            | INPUT MULTILINE_STRING
+        '''
+        prompt = p[2]
+        p[0] = self.sat.sat_input(prompt, value_type=int)
+
     ### DOMAIN DEFINITION
+    def p_const_integer(self, p):
+        '''const_integer : SYMBOL
+                         | INTEGER
+        '''
+        p[0] = make_const_value(self.sat, p[1])
+
     def p_domain_definition(self, p):
         'domain_definition : SYMBOL DEF_DOMAIN domain'
-        #print("DEF", p[1], p[3])
         p[0] = self.sat.define_sat_domain(p, p[1], p[3])
 
     def p_domain(self, p):
@@ -471,16 +537,21 @@ class SatParser:
         p[0] = domain(p[1], p[3])
 
     def p_domain_term_number(self, p):
-        'domain_term : INTEGER'
+        'domain_term : const_integer'
         p[0] = p[1]
 
     def p_domain_term_range(self, p):
-        '''domain_term : INTEGER COLON INTEGER'''
-        p[0] = list(range(p[1], p[3] + 1))
+        '''domain_term : const_integer COLON const_integer'''
+        start = p[1]
+        stop = p[3] + 1
+        p[0] = list(range(start, stop))
 
     def p_domain_term_range_stride(self, p):
-        '''domain_term : INTEGER COLON INTEGER COLON INTEGER'''
-        p[0] = list(range(p[1], p[3] + 1, p[5]))
+        '''domain_term : const_integer COLON const_integer COLON const_integer'''
+        start = p[1]
+        stop = p[3] + 1
+        stride = p[5]
+        p[0] = list(range(start, stop, stride))
 
     ### OPTIONS
     def p_set_option(self, p):
@@ -547,7 +618,9 @@ class SatParser:
                       | expr_unop
                       | paren_expression
                       | SYMBOL
-                      | INTEGER'''
+                      | INTEGER
+                      | input_definition
+        '''
         p[0] = make_value(self.sat, p[1])
 
     def p_paren_expression(self, p):

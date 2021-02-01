@@ -11,10 +11,14 @@ and wire fencing for the other three sides.
    |           |
    +###########+
        rock 
-Given  100 m of wire fencing, determine the dimensions that would create a garden of
+
+Given N meters of wire fencing, determine the dimensions that would create a garden of
 maximum area. What is the maximum area?
 
 >>>
+
+# Read input parameter (fence length)
+N := [input] "How many meters of fence? "
 
 # Print a line for each found solution:
 [solution] "solution[{_COUNT:2d}]: x={x} y={y} area={area} [elapsed: {_ELAPSED:.2f}s]"
@@ -37,7 +41,7 @@ maximum area. What is the maximum area?
 [end] "All done! [elapsed: {_ELAPSED:.2f}s]"
 
 ### DOMAIN definition:
-D = [0:100]
+D = [1:N]
 
 ### VARIABLES definition:
 x, y :: D
@@ -47,7 +51,7 @@ area := x * y
 fence_length := 2 * x + y
 
 ### CONSTRAINTS:
-fence_length == 100
+fence_length == N
 
 ### OPTIMIZATION:
 maximize(area)

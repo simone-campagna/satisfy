@@ -279,6 +279,8 @@ def sat_solve(sat, timeout, limit, profile=False, show_stats=False, show_model=F
         if value:
             print(value)
 
+    # sat.set_output_file(output_file)
+
     kwargs = {}
     if limit is not None:
         kwargs['limit'] = limit
@@ -288,14 +290,14 @@ def sat_solve(sat, timeout, limit, profile=False, show_stats=False, show_model=F
         with renderer_class(sat, model_solver, render_solution, output_file=output_file) as renderer:
             if show_model:
                 renderer.show_model()
-            maybe_print(renderer, sat.output_begin(model_solver))
+            sat.output_begin()
 
             with profiling(profile):
                 for solution in model_solver:
-                    maybe_print(renderer, sat.output_solution(model_solver, solution))
+                    sat.output_solution(model_solver, solution)
             if sat.has_objectives():
-                maybe_print(renderer, sat.output_optimal_solution(model_solver))
-            maybe_print(renderer, sat.output_end(model_solver))
+                sat.output_optimal_solution(model_solver)
+            sat.output_end(model_solver)
             if show_stats:
                 renderer.show_stats()
 
