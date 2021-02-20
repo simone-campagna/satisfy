@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import collections
 import itertools
 import logging
 import operator
@@ -10,7 +11,8 @@ import types
 import ply.lex as lex
 import ply.yacc as yacc
  
-from .expression import Const
+from .constraint import AllDifferentConstraint
+from .expression import Const, InputConst, InputReader, Variable
 from .model import Model
 from .solver import Solver, SelectVar, SelectValue
 from .objective import Maximize, Minimize
@@ -31,14 +33,14 @@ class SatSyntaxError(RuntimeError):
     pass
 
 
-def domain(*terms):
-    domain = []
+def flatten(*terms):
+    lst = []
     for term in terms:
         if isinstance(term, list):
-            domain.extend(term)
+            lst.extend(term)
         else:
-            domain.append(term)
-    return domain
+            lst.append(term)
+    return lst
 
 
 BINOP = {
@@ -75,7 +77,6 @@ def make_const_value(sat, v):
         v = sat.get_symbol(v)
         if not isinstance(v, Const):
             raise SatSyntaxError("invalid non-const expression {}".format(v))
-        v = v.value
     return v
 
 
@@ -112,7 +113,73 @@ class SatProxy:
         ]
 
 
-class Sat(Model):
+class SatTerm:
+    def values(self, sat):
+        raise NotImplementedError()
+
+    @classmethod
+    def build(cls, value):
+        if isinstance(value, cls):
+            return value
+        return SatValue(value)
+
+
+class SatValue(SatTerm):
+    def __init__(self, value):
+        assert not isinstance(value, SatTerm)
+        self.value =  value
+
+    def values(self, sat):
+        yield sat.get_value(self.value)
+
+
+class SatRange(SatTerm):
+    def __init__(self, start, stop, stride=1):
+        self.start =  start
+        self.stop =  stop
+        self.stride =  stride
+
+    def values(self, sat):
+        start = sat.get_value(self.start)
+        stop = sat.get_value(self.stop)
+        stride = sat.get_value(self.stride)
+        if stride < 0:
+            increment = -1
+        else:
+            increment = +1
+        yield from range(start, stop + increment, stride)
+
+
+class SatIO:
+    pass
+
+
+class SatInput(SatIO):
+    def __init__(self, input_const, prompt=None):
+        self.input_const = input_const
+        self.prompt = prompt
+
+    def __call__(self, input_file, output_file, *args, **kwargs):
+        reader = InputReader(input_file=input_file, output_file=output_file, prompt=self.prompt)
+        self.input_const.reader = reader
+        return self.input_const.value
+
+    def __repr__(self):
+        return "{}({!r})".format(self.__class__.__name__, self.input_const)
+
+
+class SatOutput(SatIO):
+    def __init__(self, text):
+        self.text = text
+
+    def __call__(self, input_file, output_file, *args, **kwargs):
+        print(self.text.format(*args, **kwargs), file=output_file, flush=True)
+
+    def __repr__(self):
+        return "{}({!r})".format(self.__class__.__name__, self.text)
+
+
+class Sat:
     SCOPE_BEGIN = '[begin]'
     SCOPE_SOLUTION = '[solution]'
     SCOPE_OPTIMAL_SOLUTION = '[optimal-solution]'
@@ -123,37 +190,113 @@ class Sat(Model):
         SCOPE_OPTIMAL_SOLUTION,
         SCOPE_END,
     )
-    def __init__(self, *, input_file=sys.stdin, output_file=sys.stdout, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, **kwargs):
+        self.model_kwargs = kwargs
         self.__domains = {}
+        self.__constraints = []
+        self.__objectives = []
         self.__vars = {}
+        self.__var_domains = {}
+        self.__macro_names = []
         self.__macros = {}
         self.__select_var = SelectVar.max_bound
         self.__select_value = SelectValue.min_value
         self.__limit = None
         self.__timeout = None
-        self.input_file = input_file
-        self.output_file = output_file
-        self.output = {
+        self.__io = {
             self.SCOPE_BEGIN: [],
             self.SCOPE_SOLUTION: [],
             self.SCOPE_OPTIMAL_SOLUTION: [],
             self.SCOPE_END: [],
         }
+        self.__ucount = collections.Counter()
 
-    def sat_input(self, prompt=None, value_type=int):
-        self.output_begin()
-        if prompt is not None:
-            self.sat_output(prompt, end='')
-        value = self.input_file.readline().rstrip('\n')
-        if value_type is not None:
-            value = value_type(value)
+    def _get_uid(self, namespace):
+        idx = self.__ucount[namespace]
+        self.__ucount[namespace] += 1
+        return '__{}::{}'.format(namespace, idx)
+
+    def define_sat_input(self, prompt=None, value_type=int):
+        input_const = InputConst()
+        in_obj = SatInput(input_const=input_const, prompt=prompt)
+        self.__io[self.SCOPE_BEGIN].append(in_obj)
+        return input_const
+
+    def define_sat_output(self, p, scope, text):
+        out_obj = SatOutput(text=text)
+        self.__io[scope].append(out_obj)
+        return out_obj
+
+    def define_sat_domain(self, p, name, domain):
+        self.__domains[name] = domain
+        return domain
+
+    def define_sat_vars(self, p, domain, *names):
+        if isinstance(domain, str):
+            domain_name = domain
+        else:
+            domain_name = self._get_uid('domain')
+            self.__domains[domain_name] = domain
+            domain = []
+        variables = []
+        for name in names:
+            self.__var_domains[name] = domain_name
+            var = Variable(name)
+            self.__vars[name] = var
+            variables.append(var)
+        return variables
+
+    def define_sat_macro(self, p, name, expression):
+        if isinstance(expression, int):
+            expression = Const(expression)
+        self.__vars[name] = expression
+        self.__macros[name] = expression
+        self.__macro_names.append(name)
+
+###############################################################################
+
+    def build_model(self, input_file=None, output_file=None):
+        if input_file is None:
+            input_file = sys.stdin
+        if output_file is None:
+            output_file = sys.stdout
+        self.io_begin(input_file, output_file)
+
+        macros = self.expand_macros()
+        domains = {}
+        for domain_name, domain_terms in self.__domains.items():
+            domain = []
+            for term in domain_terms:
+                domain.extend(term.values(self))
+            domains[domain_name] = domain
+
+        model = Model(**self.model_kwargs)
+        for var_name in self.__vars:
+            if var_name in self.__var_domains:
+                domain = self.__var_domains[var_name]
+                if isinstance(domain, str):
+                    domain = domains[domain]
+                model.add_int_variable(domain, name=var_name)
+
+        for constraint in self.__constraints:
+            model.add_constraint(constraint)
+
+        for objective in self.__objectives:
+            model.add_objective(objective)
+
+        return model
+
+###############################################################################
+    def get_value(self, value):
+        if isinstance(value, str):
+            macros = self.expand_macros()
+            if value in macros:
+                return macros[value]
+            else:
+                raise KeyError(value)
+        elif isinstance(value, Const):
+            value = value.value
         return value
-
-    def sat_output(self, text, **kwargs):
-        if text is not None:
-            print(text, file=self.output_file, **kwargs)
-            self.output_file.flush()
 
     def domains(self):
         return types.MappingProxyType(self.__domains)
@@ -167,6 +310,19 @@ class Sat(Model):
     def get_symbol(self, symbol):
         return self.__vars[symbol]
 
+    def expand_macros(self, substitution=None):
+        data = {}
+        if substitution:
+            data.update(substitution)
+        macros = {}
+        for macro_name in self.__macro_names:
+            expression = self.__macros[macro_name]
+            if expression.is_free(data):
+                value = expression.evaluate(data)
+                macros[macro_name] = value
+                data[macro_name] = value
+        return macros
+
     def _get_data(self, *, model_solver=None, solution=None):
         data = {
             '_MODEL': SatProxy(self),
@@ -179,40 +335,31 @@ class Sat(Model):
             data['_SOLUTION'] = solution
             if '_COUNT' in data:
                 data['_INDEX'] = data['_COUNT'] - 1
-            for macro, expression in self.__macros.items():
-                data[macro] = expression.evaluate(solution)
+            data.update(self.expand_macros(solution))
             for var_name, value in solution.items():
                 data[var_name] = value
         return data
 
-    def get_output(self, scope):
-        output = self.output[scope]
-        self.output[scope] = []
-        return output
+    def _do_io(self, scope, input_file, output_file, data):
+        for io_obj in self.__io[scope]:
+            io_obj(input_file, output_file, **data)
 
-    def get_output_begin(self):
-        output = self.get_output(self.SCOPE_BEGIN)
-        if output:
-            fmt = '\n'.join(output)
-            data = self._get_data()
-            return fmt.format(**data)
+    def io_begin(self, input_file, output_file):
+        self._do_io(self.SCOPE_BEGIN, input_file, output_file, {})
 
-    def get_output_solution(self, model_solver, solution):
-        output = self.get_output(self.SCOPE_SOLUTION)
-        if output:
-            fmt = '\n'.join(output)
+    def io_solution(self, input_file, output_file, model_solver, solution):
+        data = self._get_data(model_solver=model_solver, solution=solution)
+        data['_SOLUTION'] = solution
+        data['_INDEX'] = data['_COUNT'] - 1
+        self._do_io(self.SCOPE_SOLUTION, input_file, output_file, data)
+
+    def io_optimal_solution(self, input_file, output_file, model_solver):
+        model = model_solver.model
+        if not model.has_objectives():
+            return
+        optimization_result = model_solver.get_optimization_result()
+        if optimization_result.solution is not None:
             stats = model_solver.stats
-            data = self._get_data(model_solver=model_solver, solution=solution)
-            data['_SOLUTION'] = solution
-            data['_INDEX'] = data['_COUNT'] - 1
-            return fmt.format(**data)
-
-    def get_output_optimal_solution(self, model_solver):
-        output = self.get_output(self.SCOPE_OPTIMAL_SOLUTION)
-        if output:
-            fmt = '\n'.join(output)
-            stats = model_solver.stats
-            optimization_result = model_solver.get_optimization_result()
             solution = optimization_result.solution
             if optimization_result.is_optimal:
                 optimal = 'optimal'
@@ -221,62 +368,22 @@ class Sat(Model):
             data = self._get_data(model_solver=model_solver, solution=solution)
             data['_IS_OPTIMAL'] = optimization_result.is_optimal
             data['_OPTIMAL'] = optimal
-            return fmt.format(**data)
+            self._do_io(self.SCOPE_OPTIMAL_SOLUTION, input_file, output_file, data)
 
-    def get_output_end(self, model_solver):
-        output = self.get_output(self.SCOPE_END)
-        if output:
-            fmt = '\n'.join(output)
-            data = self._get_data(model_solver=model_solver)
-            return fmt.format(**data)
-
-    def output_begin(self):
-        self.sat_output(self.get_output_begin())
-
-    def output_solution(self, model_solver, solution):
-        self.sat_output(self.get_output_solution(model_solver, solution))
-
-    def output_optimal_solution(self, model_solver):
-        self.sat_output(self.get_output_optimal_solution(model_solver))
-
-    def output_end(self, model_solver):
-        self.sat_output(self.get_output_end(model_solver))
-
-    def define_sat_output(self, p, scope, output):
-        self.output[scope].append(output)
-
-    def define_sat_domain(self, p, name, domain):
-        # print("DEFINE DOMAIN {} := {!r}".format(name, domain))
-        self.__domains[name] = domain
-        return domain
-
-    def define_sat_vars(self, p, domain, *names):
-        if isinstance(domain, str):
-            domain = self.__domains[domain]
-        variables = []
-        for name in names:
-            # print("DEFINE VAR {} :: {!r}".format(name, domain))
-            var = self.add_int_variable(domain, name=name)
-            self.__vars[name] = var
-            variables.append(var)
-        return variables
-
-    def define_sat_macro(self, p, name, expression):
-        if isinstance(expression, int):
-            expression = Const(expression)
-        self.__vars[name] = expression
-        self.__macros[name] = expression
+    def io_end(self, input_file, output_file, model_solver):
+        data = self._get_data(model_solver=model_solver)
+        self._do_io(self.SCOPE_END, input_file, output_file, data)
 
     def add_sat_constraint(self, p, constraint):
-        self.add_constraint(constraint)
+        self.__constraints.append(constraint)
         return constraint
 
     def add_sat_all_different_constraint(self, p, constraint_type, var_list):
-        self.add_all_different_constraint([self.__vars[var] for var in var_list])
+        self.__constraints.append(AllDifferentConstraint([var_name for var_name in var_list]))
         return var_list
 
     def add_sat_objective(self, p, objective_name, expression):
-        self.add_objective(OBJECTIVE[objective_name](expression))
+        self.__objectives.append(OBJECTIVE[objective_name](expression))
 
     def set_sat_option(self, p, option_name, option_value):
         if option_name == 'select_var':
@@ -511,7 +618,7 @@ class SatParser:
                             | INPUT MULTILINE_STRING
         '''
         prompt = p[2]
-        p[0] = self.sat.sat_input(prompt, value_type=int)
+        p[0] = self.sat.define_sat_input(prompt, value_type=int)
 
     ### DOMAIN DEFINITION
     def p_const_integer(self, p):
@@ -530,28 +637,28 @@ class SatParser:
 
     def p_domain_content_term(self, p):
         'domain_content : domain_term'
-        p[0] = domain(p[1])
+        p[0] = flatten(SatTerm.build(p[1]))
 
     def p_domain_content_list(self, p):
         'domain_content : domain_term COMMA domain_content'
-        p[0] = domain(p[1], p[3])
+        p[0] = flatten(p[1], p[3])
 
     def p_domain_term_number(self, p):
         'domain_term : const_integer'
-        p[0] = p[1]
+        p[0] = SatTerm.build(p[1])
 
     def p_domain_term_range(self, p):
         '''domain_term : const_integer COLON const_integer'''
         start = p[1]
-        stop = p[3] + 1
-        p[0] = list(range(start, stop))
+        stop = p[3]
+        p[0] = SatRange(start, stop)
 
     def p_domain_term_range_stride(self, p):
         '''domain_term : const_integer COLON const_integer COLON const_integer'''
         start = p[1]
-        stop = p[3] + 1
+        stop = p[3]
         stride = p[5]
-        p[0] = list(range(start, stop, stride))
+        p[0] = SatRange(start, stop, stride)
 
     ### OPTIONS
     def p_set_option(self, p):
@@ -661,7 +768,6 @@ class SatParser:
 
     def p_macro(self, p):
         'macro_definition : SYMBOL DEF_MACRO expression'
-        #print("DEF", p[1], p[3])
         p[0] = self.sat.define_sat_macro(p, p[1], p[3])
 
     ### OBJECTIVE
@@ -681,31 +787,3 @@ def sat_compile(source, **kwargs):
     parser = SatParser(sat)
     parser.parse(source)
     return sat
-
-
-# def main():
-#     source = '''\
-#     D2 := [4:40]
-# 
-#     x, y, z :: D2
-# 
-#     x < y
-#     y < z
-#     x + y + z == 62
-#     x * y * z == 2880
-#     '''
-#     
-#     # # Give the lexer some input
-#     # lexer = SatLexer()
-#     # 
-#     # for tok in lexer.parse(source):
-#     #     print(tok)
-# 
-#     sat = Sat()
-#     parser = SatParser(sat)
-#     result = parser.parse(source)
-#     for solution in sat:
-#         print(solution)
-# 
-# if __name__ == "__main__":
-#     main()

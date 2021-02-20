@@ -38,10 +38,11 @@ class HelpSyntaxAction(argparse.Action):
 
 def sat_tool(source_file, timeout, limit, show_model, show_stats, profile, show_mode, output_file, input_file):
     source = source_file.read()
-    model = sat_compile(source, input_file=input_file, output_file=output_file)
+    model_builder = sat_compile(source)
     
-    sat_solve(model, timeout=timeout, limit=limit,
-          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode, output_file=output_file)
+    sat_solve(model_builder, timeout=timeout, limit=limit,
+          show_model=show_model, show_stats=show_stats, profile=profile, show_mode=show_mode,
+          input_file=input_file, output_file=output_file)
 
 
 def create_sat_parser(subparsers=None, name='sat', *, formatter_class=argparse.RawDescriptionHelpFormatter, **kwargs):

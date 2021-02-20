@@ -10,6 +10,8 @@ __all__ = [
     'Const',
     'Variable',
     'Parameter',
+    'InputReader',
+    'InputConst',
 ]
 
 
@@ -43,6 +45,13 @@ class Expression(abc.ABC):
 
     def vars(self):
         yield from self.free_vars({})
+
+    def is_free(self, substitution=None):
+        if substitution is None:
+            substitution = {}
+        for _ in self.free_vars(substitution):
+            return False
+        return True
 
     @abc.abstractmethod
     def evaluate(self, substitution):
@@ -219,108 +228,147 @@ class Const(Expression):
         yield from ()
 
     def equals(self, other):
-        return type(self) == type(other) and self._value == other.value
+        return type(self) == type(other) and self._get_value() == other.value
+
+    def _get_value(self):
+        return self._value
 
     @property
     def value(self):
-        return self._value
+        return self._get_value()
 
     def evaluate(self, substitution):
-        return self._value
+        return self._get_value()
 
     def __repr__(self):
-        return "{}({!r})".format(type(self).__name__, self._value)
+        return "{}({!r})".format(type(self).__name__, self._get_value())
 
     def __str__(self):
-        return str(self._value)
+        return str(self._get_value())
 
     def py_expr(self):
         return str(self)
 
     def __add__(self, other):
-        if self._value == 0:
+        value = self._get_value()
+        if value == 0:
             return self.coerce(other)
         elif isinstance(other, Const):
-            return Const(self._value + other.value)
+            return Const(value + other.value)
         else:
             return _make_sum(self, other)
 
     def __sub__(self, other):
-        if self._value == 0:
+        value = self._get_value()
+        if value == 0:
             return Neg(other)
         elif isinstance(other, Const):
-            return Const(self._value - other.value)
+            return Const(value - other.value)
         else:
             return Sub(self, other)
 
     def __mul__(self, other):
-        if self._value == 0:
+        value = self._get_value()
+        if value == 0:
             return self
-        elif self._value == 1:
+        elif value == 1:
             return self.coerce(other)
         elif isinstance(other, Const):
-            return Const(self._value * other.value)
+            return Const(value * other.value)
         return _make_prod(self, other)
 
     def __div__(self, other):
-        if self._value == 0:
+        value = self._get_value()
+        if value == 0:
             return self
         elif isinstance(other, Const):
-            return Const(self._value // other.value)
+            return Const(value // other.value)
         else:
             return Div(self, other)
 
     def __pow__(self, other):
-        if self.value == 1:
+        value = self._get_value()
+        if value == 1:
             return self
         elif isinstance(other, Const):
-            return Const(self._value ** other.value)
+            return Const(value ** other.value)
         return Pow(self, other)
 
     def __mod__(self, other):
         if isinstance(other, Const):
-            return Const(self._value % other.value)
+            return Const(self.value % other.value)
         return Mod(self, other)
 
     def __eq__(self, other):
         if isinstance(other, Const):
-            return int(self._value == other.value)
+            return int(self.value == other.value)
         return Eq(self, other)
 
     def __ne__(self, other):
         if isinstance(other, Const):
-            return int(self._value != other.value)
+            return int(self.value != other.value)
         return Ne(self, other)
 
     def __lt__(self, other):
         if isinstance(other, Const):
-            return int(self._value < other.value)
+            return int(self.value < other.value)
         return Lt(self, other)
 
     def __le__(self, other):
         if isinstance(other, Const):
-            return int(self._value <= other.value)
+            return int(self.value <= other.value)
         return Le(self, other)
 
     def __gt__(self, other):
         if isinstance(other, Const):
-            return int(self._value > other.value)
+            return int(self.value > other.value)
         return Gt(self, other)
 
     def __ge__(self, other):
         if isinstance(other, Const):
-            return int(self._value >= other.value)
+            return int(self.value >= other.value)
         return Ge(self, other)
 
     def __and__(self, other):
         if isinstance(other, Const):
-            return int(self._value and other.value)
+            return int(self.value and other.value)
         return And(self, other)
 
     def __or__(self, other):
         if isinstance(other, Const):
-            return int(self._value or other.value)
+            return int(self.value or other.value)
         return Or(self, other)
+
+
+class InputReader:
+    def __init__(self, input_file=None, output_file=None, prompt=None, input_type=int):
+        if input_file is None:
+            input_file = sys.stdin
+        self.input_file = input_file
+        if output_file is None:
+            output_file = sys.stdout
+        self.output_file = output_file
+        self.prompt = prompt
+        self.input_type = input_type
+
+    def __call__(self):
+        if self.prompt:
+            print(self.prompt, end='', file=self.output_file, flush=True)
+        return self.input_type(self.input_file.readline())
+
+
+class InputConst(Const):
+    def __init__(self, reader=input):
+        self.reader = reader
+        super().__init__(None)
+
+    def _get_value(self):
+        if self._value is None:
+            self._value = self.reader()
+        return self._value
+
+    def __repr__(self):
+        return "{}({!r})".format(type(self).__name__, self.reader)
 
 
 class Collection(Expression):

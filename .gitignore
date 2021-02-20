@@ -105,3 +105,9 @@ venv.bak/
 
 # ViM swap files
 .*.swp
+
+# TODO
+TODO
+
+# tmp dir
+tmp/

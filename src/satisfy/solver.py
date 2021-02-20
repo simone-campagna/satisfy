@@ -251,6 +251,20 @@ def iterator_len(it):
     return count
 
 
+def count_min(values):
+    if values:
+        return min(values)
+    else:
+        return 0
+
+    
+def count_max(values):
+    if values:
+        return max(values)
+    else:
+        return 0
+
+    
 class BoundVarSelector(StaticVarSelector):
     __key_function__ = None
     __reverse__ = None
@@ -271,13 +285,13 @@ class BoundVarSelector(StaticVarSelector):
 
 @SelectVar.__register__('min_boundmin')
 class Min_BoundMinSelector(BoundVarSelector):
-    __key_function__ = min
+    __key_function__ = count_min
     __reverse__ = True
 
 
 @SelectVar.__register__('min_boundmax', 'min_bound')
 class Min_BoundMaxSelector(BoundVarSelector):
-    __key_function__ = max
+    __key_function__ = count_max
     __reverse__ = True
 
 
@@ -295,13 +309,13 @@ class Min_BoundLenSelector(BoundVarSelector):
 
 @SelectVar.__register__('max_boundmin', 'max_bound')
 class Max_BoundMinSelector(BoundVarSelector):
-    __key_function__ = min
+    __key_function__ = count_min
     __reverse__ = False
 
 
 @SelectVar.__register__('max_boundmax')
 class Max_BoundMaxSelector(BoundVarSelector):
-    __key_function__ = max
+    __key_function__ = count_max
     __reverse__ = False
 
 
@@ -688,6 +702,14 @@ class ModelSolver:
             var_groups=var_groups,
             extra={}
         )
+
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def solver(self):
+        return self._solver
 
     @property
     def state(self):

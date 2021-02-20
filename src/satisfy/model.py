@@ -28,7 +28,16 @@ __all__ = [
 
 LOG = logging.getLogger(__name__)
 
-VariableInfo = collections.namedtuple("VariableInfo", "variable domain")
+class VariableInfo:
+    def __init__(self, variable, domain):
+        self.variable = variable
+        self.domain = domain
+
+    def __repr__(self):
+        return "{}(variable={!r}, domain={!r})".format(
+            type(self).__name__,
+            self.variable,
+            self.domain)
 
 
 class Model(object):
@@ -111,17 +120,28 @@ class Model(object):
             domain=None)
         return parameter
 
-    def add_int_variable(self, domain, *, name=None):
+    def _check_domain(self, domain):
         values = set()
         for value in domain:
             if value in values:
                 raise ValueError("duplicated value {}".format(value))
             values.add(value)
+
+    def add_int_variable(self, domain, *, name=None):
+        self._check_domain(domain)
         variable = self._get_variable(name)
         self.__variables[variable.name] = VariableInfo(
             variable=variable,
             domain=domain)
         return variable
+
+    def set_variable_domain(self, variable, domain):
+        self._check_domain(domain)
+        if isinstance(variable, Variable):
+            var_name = variable.name
+        else:
+            var_name = variable
+        self.__variables[var_name].domain = domain
 
     def add_bool_variable(self, *, name=None):
         return self.add_int_variable(domain=(0, 1), name=name)

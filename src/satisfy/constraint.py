@@ -83,7 +83,10 @@ class ExpressionConstraint(Constraint):
 
     def compile_function(self):
         ce = self._expression.compile_py_expr()
-        return  lambda subs: eval(ce, self._globals, subs)
+        # def cfun(subs):
+        #     return  eval(ce, self._globals, subs)
+        # return cfun
+        return lambda subs: eval(ce, self._globals, subs)
 
     def compile(self):
         self._evaluate_function = self.compile_function()

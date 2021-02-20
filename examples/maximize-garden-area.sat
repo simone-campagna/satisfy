@@ -9,7 +9,7 @@ and wire fencing for the other three sides.
    |           |
    |           | x
    |           |
-   +###########+
+   #############
        rock 
 
 Given N meters of wire fencing, determine the dimensions that would create a garden of
@@ -32,13 +32,13 @@ N := [input] "How many meters of fence? "
    |           |
    |           | {x:^3d} [area: {area}]
    |           |
-   +###########+
+   #############
        rock 
 
 >>>
 
 # Print something at the end:
-[end] "All done! [elapsed: {_ELAPSED:.2f}s]"
+[end] "All done! [solutions: {_COUNT}, elapsed: {_ELAPSED:.2f}s]"
 
 ### DOMAIN definition:
 D = [1:N]

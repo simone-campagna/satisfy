@@ -259,7 +259,7 @@ def solve(model, timeout, limit, profile=False, show_stats=False, show_model=Fal
 
 
 def sat_solve(sat, timeout, limit, profile=False, show_stats=False, show_model=False, show_mode=ShowMode.QUIET,
-              output_file=sys.stdout, render_solution=None):
+              input_file=sys.stdin, output_file=sys.stdout, render_solution=None):
     renderer_class = DefaultTextRenderer
     if show_mode is ShowMode.QUIET:
         renderer_class = QuietTextRenderer
@@ -286,18 +286,17 @@ def sat_solve(sat, timeout, limit, profile=False, show_stats=False, show_model=F
         kwargs['limit'] = limit
     if timeout is not None:
         kwargs['timeout'] = timeout
-    with sat.solve(**kwargs) as model_solver:
-        with renderer_class(sat, model_solver, render_solution, output_file=output_file) as renderer:
+    model = sat.build_model(input_file, output_file)
+    with model.solve(**kwargs) as model_solver:
+        with renderer_class(model, model_solver, render_solution, output_file=output_file) as renderer:
             if show_model:
                 renderer.show_model()
-            sat.output_begin()
 
             with profiling(profile):
                 for solution in model_solver:
-                    sat.output_solution(model_solver, solution)
-            if sat.has_objectives():
-                sat.output_optimal_solution(model_solver)
-            sat.output_end(model_solver)
+                    sat.io_solution(input_file, output_file, model_solver, solution)
+            sat.io_optimal_solution(input_file, output_file, model_solver)
+            sat.io_end(input_file, output_file, model_solver)
             if show_stats:
                 renderer.show_stats()
 
