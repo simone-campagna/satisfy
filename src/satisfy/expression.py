@@ -362,6 +362,9 @@ class InputConst(Const):
         self.reader = reader
         super().__init__(None)
 
+    def has_value(self):
+        return self._value is not None
+
     def _get_value(self):
         if self._value is None:
             self._value = self.reader()

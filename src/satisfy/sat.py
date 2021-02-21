@@ -310,13 +310,15 @@ class Sat:
     def get_symbol(self, symbol):
         return self.__vars[symbol]
 
-    def expand_macros(self, substitution=None):
+    def expand_macros(self, substitution=None, force_input_const_eval=True):
         data = {}
         if substitution:
             data.update(substitution)
         macros = {}
         for macro_name in self.__macro_names:
             expression = self.__macros[macro_name]
+            if (not force_input_const_eval) and isinstance(expression, InputConst) and not expression.has_value():
+                continue
             if expression.is_free(data):
                 value = expression.evaluate(data)
                 macros[macro_name] = value
@@ -345,7 +347,11 @@ class Sat:
             io_obj(input_file, output_file, **data)
 
     def io_begin(self, input_file, output_file):
-        self._do_io(self.SCOPE_BEGIN, input_file, output_file, {})
+        macros = self.expand_macros(force_input_const_eval=False)
+        for io_obj in self.__io[self.SCOPE_BEGIN]:
+            io_obj(input_file, output_file, **macros)
+            if isinstance(io_obj, SatInput):
+                macros = self.expand_macros(force_input_const_eval=False)
 
     def io_solution(self, input_file, output_file, model_solver, solution):
         data = self._get_data(model_solver=model_solver, solution=solution)
