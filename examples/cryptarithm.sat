@@ -1,6 +1,6 @@
 #!/usr/bin/env satisfy
 
-[begin] <<<
+[begin] [[[
 Solve the following cryptarithm:
 
    AB * C == DBE
@@ -12,7 +12,7 @@ Solve the following cryptarithm:
 
 where A, B, C, D, E, F, G, H are different digits.
 
->>>
+]]]
 
 # Define problem variables with their domain:
 A, B, C, D, E, F, G, H :: [0:9]
@@ -26,7 +26,7 @@ DDA := 100*D + 10*D + A
 DDH := 100*D + 10*D + H
 
 # Solution output:
-[solution] <<<
+[solution] [[[
 === solution [{_COUNT:2d}]:
 
     {AB} * {C} == {DBE}
@@ -36,7 +36,7 @@ DDH := 100*D + 10*D + H
 
    {DDA} + {G} == {DDH}
 
->>>
+]]]
 
 # constraints:
 all_different(A, B, C, D, E, F, G, H)

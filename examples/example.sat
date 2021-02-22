@@ -68,11 +68,11 @@ option(select_value, random)
 # You can optionally set output lines; for each solution
 # all the output lines are shown. Variables in {...} are
 # substituted, according to python string formatting.
-[solution] <<<
+[solution] [[[
 === solution[{_COUNT}]
 x is {x:2d}
 y is {y:2d}
 z is {z:2d}
 x - z == {difference}
 
->>>
+]]]

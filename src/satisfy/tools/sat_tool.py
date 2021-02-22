@@ -57,8 +57,10 @@ Solve a generic model described as SAT file.
 The SAT syntax is simple; for instance:
 
 # ------------------------------------------------------------------------------
+#!/usr/bin/env satisfy
+
 # Print a description of the problem:
-[begin] <<<
+[begin] [[[
 A rectangular garden is to be constructed using a rock wall as one side of the garden,
 and wire fencing for the other three sides.
         y
@@ -66,13 +68,13 @@ and wire fencing for the other three sides.
    |           |
    |           | x
    |           |
-   +###########+
+   #############
        rock 
 
 Given N meters of wire fencing, determine the dimensions that would create a garden of
 maximum area. What is the maximum area?
 
->>>
+]]]
 
 # Read input parameter (fence length)
 N := [input] "How many meters of fence? "
@@ -81,7 +83,7 @@ N := [input] "How many meters of fence? "
 [solution] "solution[{_COUNT:2d}]: x={x} y={y} area={area} [elapsed: {_ELAPSED:.2f}s]"
 
 # Print the optimal solution:
-[optimal-solution] <<<
+[optimal-solution] [[[
 === {_OPTIMAL} solution:
 
         {y:^3d}
@@ -89,13 +91,13 @@ N := [input] "How many meters of fence? "
    |           |
    |           | {x:^3d} [area: {area}]
    |           |
-   +###########+
+   #############
        rock 
 
->>>
+]]]
 
 # Print something at the end:
-[end] "All done! [elapsed: {_ELAPSED:.2f}s]"
+[end] "All done! [solutions: {_COUNT}, elapsed: {_ELAPSED:.2f}s]"
 
 ### DOMAIN definition:
 D = [1:N]

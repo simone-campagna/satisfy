@@ -529,7 +529,7 @@ class SatLexer:
         return t
 
     def t_MULTILINE_STRING(self, t):
-        r'\<\<\<\s*\n(.|\n)*?\>\>\>'
+        r'\[\[\[\s*\n(.|\n)*?\]\]\]'
         t.lexer.lineno += t.value.count('\n')
         value = t.value[3:-3]
         value.strip(' ')
