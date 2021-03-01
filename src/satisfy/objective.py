@@ -2,7 +2,7 @@ import abc
 import operator
 
 from .constraint import ExpressionConstraint
-from .expression import Expression, expression_globals
+from .expression import Expression, BoundExpression
 
 __all__ = [
     'ObjectiveConstraint',
@@ -17,7 +17,7 @@ class ObjectiveConstraint(ExpressionConstraint):
     pass
 
 
-class ObjectiveExpression(ExpressionConstraint):
+class ObjectiveExpression(BoundExpression):
     pass
 
 

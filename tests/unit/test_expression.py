@@ -20,11 +20,6 @@ def test_coerce():
     assert Expression.coerce(e) is e
 
 
-@pytest.fixture(params=['False', 'True'])
-def compiled(request):
-    return request.param
-
-
 @pytest.mark.parametrize("expr, subst, value", [
     (Const(10), {}, 10),
     (Const(10), {'x': 20}, 10),
@@ -35,10 +30,5 @@ def compiled(request):
     (3 * Variable('x') * 2 + 3 - Parameter('y', 13), {'x': 10}, 50),
     (3 * Variable('x') * 2 + 3 - Parameter('y', 13), {'x': 10, 'y': 1000}, 50),
 ])
-def test_evaluate(expr, subst, value, compiled):
-    if compiled:
-        fn = expr.compile_py_function()
-        assert callable(fn)
-        assert fn(**subst) == value
-    else:
-        assert expr.evaluate(subst) == value
+def test_evaluate(expr, subst, value):
+    assert expr.evaluate(subst) == value

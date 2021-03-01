@@ -14,6 +14,7 @@ __all__ = [
     'InputConst',
     'GlobalVariable',
     'FunctionCall',
+    'CompiledExpression',
 ]
 
 
@@ -44,7 +45,7 @@ class EvaluationError(ExpressionError):
     pass
 
 
-class Expression(abc.ABC):
+class ExpressionBase(abc.ABC):
     @abc.abstractmethod
     def free_vars(self, substitution):
         raise NotImplementedError()
@@ -63,12 +64,11 @@ class Expression(abc.ABC):
     def evaluate(self, substitution):
         raise NotImplementedError()
 
+
+class Expression(ExpressionBase):
     @abc.abstractmethod
     def equals(self, other):
         raise NotImplementedError()
-
-    def nodes(self):
-        yield self
 
     def _sort_key(self):
         return str(self)
@@ -397,10 +397,6 @@ class Collection(Expression):
                 if var not in vlist:
                     vlist.append(var)
         self._vars = tuple(vlist)
-
-    def nodes(self):
-        yield self
-        yield from self._epressions()
 
     @classmethod
     def is_commutative(cls):
@@ -904,9 +900,6 @@ class FunctionCall(Expression):
     def function(self):
         return self.globals_dict[self.name]
 
-    def compile_bound_expr(self):
-        return self.function
-
     def is_free(self, substitution=None):
         for arg in itertools.chain(self.args, self.kwargs.values()):
             if not arg.is_free(substitution):
@@ -945,3 +938,69 @@ class FunctionCall(Expression):
         # args = [arg.evaluate(substitution) for arg in self.args]
         # kwargs = {key: value.evaluate(substitution) for key, value in self.kwargs.items()}
         # return self.function(*args, **kwargs)
+
+
+class BoundExpression(ExpressionBase):
+    def __init__(self, expression, globals_dict=None):
+        if not isinstance(expression, Expression):
+            raise TypeError("{} is not an Expression".format(expression))
+        if globals_dict is None:
+            globals_dict = expression_globals()
+        self._globals_dict = globals_dict
+        self._expression = expression
+        self._compiled_function = None
+        self._var_names = set(self._expression.vars())
+
+    @property
+    def globals(self):
+        if self._globals is None:
+            return expression_globals()
+        return self._globals
+
+    @globals.setter
+    def globals(self, globals_d):
+        self._globals = globals_d
+
+    @property
+    def expression(self):
+        return self._expression
+
+    def is_compiled(self):
+        return self._compiled_function is not None
+
+    def _compile_function(self):
+        ce = self._expression.compile_py_expr()
+        # def cfun(subs):
+        #     return  eval(ce, self._globals, subs)
+        # return cfun
+        return lambda subs: eval(ce, self._globals, subs)
+
+    def compile(self):
+        self._compiled_function = self._compile_function()
+
+    @property
+    def compiled_function(self):
+        if self._compiled_function is None:
+            self._compiled_function = self.compile_function()
+        return self._compiled_function
+
+    def evaluate(self, substitution):
+        efun = self._compiled_function
+        if efun is None:
+            gdict = dict(self._globals_dict)
+            gdict.update(substitution)
+            return self._expression.evaluate(gdict)
+        else:
+            return efun(substitution)
+
+    def __repr__(self):
+        return "{}({!r})".format(type(self).__name__, self._expression)
+
+    def __str__(self):
+        return str(self._expression)
+
+    def free_vars(self, substitution):
+        return self._var_names.difference(substitution)
+
+    def vars(self):
+        return self._var_names
