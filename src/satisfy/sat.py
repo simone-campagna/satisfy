@@ -278,7 +278,7 @@ class Sat:
         self.__macro_names.append(name)
 
     def define_sat_function_call(self, p, function_name, parameters, named_parameters):
-        return FunctionCall(self.__globals_dict, function_name, parameters, named_parameters)
+        return FunctionCall(function_name, parameters, named_parameters)
 
     def define_sat_globals(self, p, source, variables=None):
         py_source = SatPySource(source=source, variables=variables)
@@ -294,8 +294,9 @@ class Sat:
             output_file = sys.stdout
         self.io_begin(input_file, output_file)
 
+        globals_dict = {}
         for py_source in self.__py_sources:
-            py_source.compile(self.__globals_dict)
+            py_source.compile(globals_dict)
 
         macros = self.expand_macros()
         domains = {}
@@ -306,6 +307,9 @@ class Sat:
             domains[domain_name] = domain
 
         model = Model(**self.model_kwargs)
+        for key, value in globals_dict.items():
+            model.add_global_symbol(key, value)
+
         for var_name in self.__vars:
             if var_name in self.__var_domains:
                 domain = self.__var_domains[var_name]
@@ -347,7 +351,7 @@ class Sat:
             return self.__vars[symbol]
         else:
             if symbol not in self.__global_vars:
-                self.__global_vars[symbol] = GlobalVariable(self.__globals_dict, symbol)
+                self.__global_vars[symbol] = GlobalVariable(symbol)
             return self.__global_vars[symbol]
 
     def expand_macros(self, substitution=None, force_input_const_eval=True):

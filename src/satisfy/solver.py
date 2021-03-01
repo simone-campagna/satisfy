@@ -632,6 +632,8 @@ class ModelSolver:
         var_groups = collections.defaultdict(list)
         solvable = True
         m_globals = model.globals
+        for objective_function in objective_functions:
+            objective_function.compile(m_globals)
         for constraint in itertools.chain(model.constraints(), additional_constraints):
             constraint.globals = m_globals
             if compile_constraints:

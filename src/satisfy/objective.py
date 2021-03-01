@@ -2,7 +2,7 @@ import abc
 import operator
 
 from .constraint import ExpressionConstraint
-from .expression import Expression
+from .expression import Expression, expression_globals
 
 __all__ = [
     'ObjectiveConstraint',
@@ -17,11 +17,22 @@ class ObjectiveConstraint(ExpressionConstraint):
     pass
 
 
+class ObjectiveExpression(ExpressionConstraint):
+    pass
+
+
 class ObjectiveFunction:
     def __init__(self, model, expression, *constraints):
         self._model = model
-        self._expression = expression
+        self._expression = ObjectiveExpression(expression)
         self._constraints = constraints
+
+    def compile(self, globals_d):
+        self._expression.globals = globals_d
+        self._expression.compile()
+        for constraint in self._constraints:
+            constraint.globals = globals_d
+            constraint.compile()
 
     def add_solution(self, solution):
         pass

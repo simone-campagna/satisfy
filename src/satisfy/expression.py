@@ -12,7 +12,6 @@ __all__ = [
     'Parameter',
     'InputReader',
     'InputConst',
-    'BoundExpression',
     'GlobalVariable',
     'FunctionCall',
 ]
@@ -81,24 +80,24 @@ class Expression(abc.ABC):
         else:
             return Const(val)
 
-    def py_source(self):
-        alist = list(self.vars())
-        alist.append("**__dummy_kwargs")
-        return "lambda {}: ({})".format(", ".join(alist), self.py_expr())
-
     def compile_py_expr(self):
         return compile(self.py_expr(), '<stdin>', 'eval')
 
-    def compile_py_function(self):
-        py_source = self.py_source()
-        return eval(py_source, EXPRESSION_GLOBALS)
+    # def py_source(self):
+    #     alist = list(self.vars())
+    #     alist.append("**__dummy_kwargs")
+    #     return "lambda {}: ({})".format(", ".join(alist), self.py_expr())
 
-    def as_function(self):
-        try:
-            return self.compile_py_function()
-        except:
-            LOG.exception("compilation of py function failed:")
-        return self.evaluate
+    # def compile_py_function(self):
+    #     py_source = self.py_source()
+    #     return eval(py_source, EXPRESSION_GLOBALS)
+
+    # def as_function(self):
+    #     try:
+    #         return self.compile_py_function()
+    #     except:
+    #         LOG.exception("compilation of py function failed:")
+    #     return self.evaluate
 
     @abc.abstractmethod
     def py_expr(self):
@@ -873,55 +872,10 @@ def build_expression(value):
         return Const(value)
 
 
-class BoundExpression(Expression):
-    def __init__(self, globals_dict):
-        self._bound_expression = None
-        self._globals_dict = globals_dict
+class GlobalVariable(Expression):
+    def __init__(self, name):
         super().__init__()
-
-    @property
-    def globals_dict(self):
-        return self._globals_dict
-
-    @property
-    def bound_expression(self):
-        return self._bound_expression
-
-    def _get_bound_expression(self):
-        if self._bound_expression is None:
-            self._bound_expression = self._bind(self._globals_dict)
-        return self._bound_expression
-
-    @abc.abstractmethod
-    def _bind(self, globals_dict):
-        raise NotImplementedError()
-
-    def is_bound(self):
-        return self._bound_expression is not None
-
-    def __repr__(self):
-        if self._bound_expression is None:
-            return repr(self._bound_expression)
-        return self._unbound_repr()
-
-    def _unbound_repr(self):
-        return '{}()'.format(type(self).__name__)
-
-    def py_expr(self):
-        return self._get_bound_expression().py_expr()
-
-    def evaluate(self, substitution):
-        return self._get_bound_expression().evaluate(substitution)
-
-
-class GlobalVariable(BoundExpression):
-    def __init__(self, globals_dict, name):
-        super().__init__(globals_dict)
         self.name = name
-
-    def _bind(self, globals_dict):
-        value = globals_dict[self.name]
-        return build_expression(value)
 
     def is_free(self, substitution=None):
         return True
@@ -932,25 +886,26 @@ class GlobalVariable(BoundExpression):
     def equals(self, other):
         return type(self) == type(other) and self.name == other.name
 
+    def py_expr(self):
+        return self.name
 
-class FunctionCall(BoundExpression):
-    def __init__(self, globals_dict, name, args, kwargs):
-        super().__init__(globals_dict)
+    def evaluate(self, substitution):
+        raise NotImplementedError()
+
+
+class FunctionCall(Expression):
+    def __init__(self, name, args, kwargs):
+        super().__init__()
         self.name = name
         self.args = [build_expression(arg) for arg in args]
         self.kwargs = {key: build_expression(value) for key, value in kwargs.items()}
 
-    def _bind(self, globals_dict):
-        function = globals_dict[self.name]
-        return function(*self.args, **self.kwargs)
+    @property
+    def function(self):
+        return self.globals_dict[self.name]
 
-    def _unbound_repr(self):
-        return '{}({!r}, {!r}, {!r})'.format(
-            type(self).__name__,
-            self.name,
-            self.args,
-            self.kwargs,
-        )
+    def compile_bound_expr(self):
+        return self.function
 
     def is_free(self, substitution=None):
         for arg in itertools.chain(self.args, self.kwargs.values()):
@@ -978,3 +933,15 @@ class FunctionCall(BoundExpression):
                 if var not in seen:
                     yield var
                     seen.add(var)
+
+    def py_expr(self):
+        alist = [arg.py_expr() for arg in self.args]
+        for key, value in self.kwargs.items():
+            alist.append('{}={}'.format(key, value.py_expr()))
+        return '{}({})'.format(self.name, ', '.join(alist))
+
+    def evaluate(self, substitution):
+        raise NotImplementedError()
+        # args = [arg.evaluate(substitution) for arg in self.args]
+        # kwargs = {key: value.evaluate(substitution) for key, value in self.kwargs.items()}
+        # return self.function(*args, **kwargs)
