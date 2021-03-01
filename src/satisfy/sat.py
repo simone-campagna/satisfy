@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+import ast
 import collections
+import functools
 import itertools
 import logging
 import operator
@@ -12,7 +14,10 @@ import ply.lex as lex
 import ply.yacc as yacc
  
 from .constraint import AllDifferentConstraint
-from .expression import Const, InputConst, InputReader, Variable
+from .expression import (
+    Const, InputConst, InputReader, Variable,
+    FunctionCall, GlobalVariable,
+)
 from .model import Model
 from .solver import Solver, SelectVar, SelectValue
 from .objective import Maximize, Minimize
@@ -179,6 +184,22 @@ class SatOutput(SatIO):
         return "{}({!r})".format(self.__class__.__name__, self.text)
 
 
+class SatPySource:
+    def __init__(self, source, variables=None):
+        self.source = source
+        self.variables = variables
+        self.ast = ast.parse(self.source)
+
+    def compile(self, globals_dict):
+        gdict = {}
+        result = exec(self.source, gdict)
+        if self.variables is None:
+            globals_dict.update(gdict)
+        else:
+            globals_dict.update({key: gdict[key] for key in self.variables})
+        return result
+
+
 class Sat:
     SCOPE_BEGIN = '[begin]'
     SCOPE_SOLUTION = '[solution]'
@@ -192,6 +213,9 @@ class Sat:
     )
     def __init__(self, **kwargs):
         self.model_kwargs = kwargs
+        self.__globals_dict = {}
+        self.__global_vars = {}
+        self.__py_sources = []
         self.__domains = {}
         self.__constraints = []
         self.__objectives = []
@@ -253,6 +277,14 @@ class Sat:
         self.__macros[name] = expression
         self.__macro_names.append(name)
 
+    def define_sat_function_call(self, p, function_name, parameters, named_parameters):
+        return FunctionCall(self.__globals_dict, function_name, parameters, named_parameters)
+
+    def define_sat_globals(self, p, source, variables=None):
+        py_source = SatPySource(source=source, variables=variables)
+        self.__py_sources.append(py_source)
+        return py_source
+
 ###############################################################################
 
     def build_model(self, input_file=None, output_file=None):
@@ -261,6 +293,9 @@ class Sat:
         if output_file is None:
             output_file = sys.stdout
         self.io_begin(input_file, output_file)
+
+        for py_source in self.__py_sources:
+            py_source.compile(self.__globals_dict)
 
         macros = self.expand_macros()
         domains = {}
@@ -308,7 +343,12 @@ class Sat:
         return types.MappingProxyType(self.__macros)
 
     def get_symbol(self, symbol):
-        return self.__vars[symbol]
+        if symbol in self.__vars:
+            return self.__vars[symbol]
+        else:
+            if symbol not in self.__global_vars:
+                self.__global_vars[symbol] = GlobalVariable(self.__globals_dict, symbol)
+            return self.__global_vars[symbol]
 
     def expand_macros(self, substitution=None, force_input_const_eval=True):
         data = {}
@@ -447,7 +487,7 @@ class SatLexer:
        'R_SQUARE_BRACKET',
        'COMMA',
        'COLON',
-       'DEF_DOMAIN',
+       'EQUALS',
        'DEF_VAR',
        'DEF_MACRO',
        'DEF_OPTION',
@@ -459,6 +499,7 @@ class SatLexer:
        'STRING',
        'OUTPUT',
        'INPUT',
+       'DEFINE',
     )
     
     # Regular expression rules for simple tokens
@@ -483,9 +524,10 @@ class SatLexer:
     t_SYMBOL                   = r'[a-zA-Z]\w*'
     t_L_SQUARE_BRACKET         = r'\['
     t_R_SQUARE_BRACKET         = r'\]'
-    t_DEF_DOMAIN               = r'\='
+    t_EQUALS                   = r'\='
     t_DEF_VAR                  = r'\:\:'
     t_DEF_MACRO                = r'\:\='
+    t_DEFINE                  = r'\[define'
 
     def t_DEF_OPTION(self, t):
         r'option'
@@ -606,6 +648,7 @@ class SatParser:
                      | constraint_definition
                      | objective_definition
                      | output_definition
+                     | globals_definition
         '''
         p[0] = [p[1]]
 
@@ -626,6 +669,21 @@ class SatParser:
         prompt = p[2]
         p[0] = self.sat.define_sat_input(prompt, value_type=int)
 
+    ### GLOBALS DEFINITION
+    def p_globals_vars_all(self, p):
+        '''globals_vars : DEFINE R_SQUARE_BRACKET'''
+        p[0] = None
+        
+    def p_globals_vars_selected(self, p):
+        '''globals_vars : DEFINE COLON var_list R_SQUARE_BRACKET'''
+        p[0] = p[3]
+
+    def p_globals_definition(self, p):
+        '''globals_definition : globals_vars STRING
+                              | globals_vars MULTILINE_STRING
+        '''
+        p[0] = self.sat.define_sat_globals(p, source=p[2], variables=p[1])
+
     ### DOMAIN DEFINITION
     def p_const_integer(self, p):
         '''const_integer : SYMBOL
@@ -634,7 +692,7 @@ class SatParser:
         p[0] = make_const_value(self.sat, p[1])
 
     def p_domain_definition(self, p):
-        'domain_definition : SYMBOL DEF_DOMAIN domain'
+        'domain_definition : SYMBOL EQUALS domain'
         p[0] = self.sat.define_sat_domain(p, p[1], p[3])
 
     def p_domain(self, p):
@@ -733,6 +791,7 @@ class SatParser:
                       | SYMBOL
                       | INTEGER
                       | input_definition
+                      | function_call
         '''
         p[0] = make_value(self.sat, p[1])
 
@@ -771,6 +830,38 @@ class SatParser:
                       | expression NE expression
         '''
         p[0] = make_binop(self.sat, p[1], p[2], p[3])
+
+    def p_function_call_posonly(self, p):
+        '''function_call : SYMBOL LPAREN parameters RPAREN'''
+        p[0] = self.sat.define_sat_function_call(p, p[1], p[3], {})
+
+    def p_function_call_named(self, p):
+        '''function_call : SYMBOL LPAREN parameters COMMA named_parameters RPAREN'''
+        p[0] = self.sat.define_sat_function_call(p, p[1], p[3], p[5])
+
+    def p_parameter(self, p):
+        '''parameter : expression'''
+        p[0] = p[1]
+
+    def p_parameters_single(self, p):
+        '''parameters : parameter'''
+        p[0] = [p[1]]
+
+    def p_parameters_multiple(self, p):
+        '''parameters : parameters COMMA parameter'''
+        p[0] = p[1] + [p[3]]
+
+    def p_named_parameter(self, p):
+        '''named_parameter : SYMBOL EQUALS expression'''
+        p[0] = {p[1]: p[3]}
+
+    def p_named_parameters_single(self, p):
+        '''named_parameters : named_parameter'''
+        p[0] = p[1]
+
+    def p_named_parameters_multiple(self, p):
+        '''named_parameters : named_parameters COMMA named_parameter'''
+        p[0] = {**p[1], **p[3]}
 
     def p_macro(self, p):
         'macro_definition : SYMBOL DEF_MACRO expression'

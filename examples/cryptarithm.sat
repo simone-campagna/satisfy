@@ -14,16 +14,27 @@ where A, B, C, D, E, F, G, H are different digits.
 
 ]]]
 
+# Define a python function to compute a number given its digits:
+[define:digits] [[[
+def digits(*values, base=10):
+    b = 1
+    value = 0
+    for digit in reversed(values):
+        value += b * digit
+        b *= base
+    return value
+]]]
+
 # Define problem variables with their domain:
 A, B, C, D, E, F, G, H :: [0:9]
 
 # Define useful macros:
-AB := 10*A + B
-DBE := 100*D + 10*B + E
-FCB := 100*F + 10*C + B
-AG := 10*A + G
-DDA := 100*D + 10*D + A
-DDH := 100*D + 10*D + H
+AB :=  digits(A, B, base=10)
+DBE := digits(D, B, E)
+FCB := digits(F, C, B)
+AG :=  digits(A, G)
+DDA := digits(D, D, A)
+DDH := digits(D, D, H)
 
 # Solution output:
 [solution] [[[

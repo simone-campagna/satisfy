@@ -12,6 +12,9 @@ __all__ = [
     'Parameter',
     'InputReader',
     'InputConst',
+    'BoundExpression',
+    'GlobalVariable',
+    'FunctionCall',
 ]
 
 
@@ -34,7 +37,11 @@ def expression_globals():
     return EXPRESSION_GLOBALS
 
 
-class EvaluationError(Exception):
+class ExpressionError(RuntimeError):
+    pass
+
+
+class EvaluationError(ExpressionError):
     pass
 
 
@@ -60,6 +67,9 @@ class Expression(abc.ABC):
     @abc.abstractmethod
     def equals(self, other):
         raise NotImplementedError()
+
+    def nodes(self):
+        yield self
 
     def _sort_key(self):
         return str(self)
@@ -388,6 +398,10 @@ class Collection(Expression):
                 if var not in vlist:
                     vlist.append(var)
         self._vars = tuple(vlist)
+
+    def nodes(self):
+        yield self
+        yield from self._epressions()
 
     @classmethod
     def is_commutative(cls):
@@ -850,3 +864,117 @@ class Parameter(Variable):
 
     def py_expr(self):
         return str(self._value)
+
+
+def build_expression(value):
+    if isinstance(value, Expression):
+        return value
+    else:
+        return Const(value)
+
+
+class BoundExpression(Expression):
+    def __init__(self, globals_dict):
+        self._bound_expression = None
+        self._globals_dict = globals_dict
+        super().__init__()
+
+    @property
+    def globals_dict(self):
+        return self._globals_dict
+
+    @property
+    def bound_expression(self):
+        return self._bound_expression
+
+    def _get_bound_expression(self):
+        if self._bound_expression is None:
+            self._bound_expression = self._bind(self._globals_dict)
+        return self._bound_expression
+
+    @abc.abstractmethod
+    def _bind(self, globals_dict):
+        raise NotImplementedError()
+
+    def is_bound(self):
+        return self._bound_expression is not None
+
+    def __repr__(self):
+        if self._bound_expression is None:
+            return repr(self._bound_expression)
+        return self._unbound_repr()
+
+    def _unbound_repr(self):
+        return '{}()'.format(type(self).__name__)
+
+    def py_expr(self):
+        return self._get_bound_expression().py_expr()
+
+    def evaluate(self, substitution):
+        return self._get_bound_expression().evaluate(substitution)
+
+
+class GlobalVariable(BoundExpression):
+    def __init__(self, globals_dict, name):
+        super().__init__(globals_dict)
+        self.name = name
+
+    def _bind(self, globals_dict):
+        value = globals_dict[self.name]
+        return build_expression(value)
+
+    def is_free(self, substitution=None):
+        return True
+
+    def free_vars(self, substitution):
+        yield from ()
+
+    def equals(self, other):
+        return type(self) == type(other) and self.name == other.name
+
+
+class FunctionCall(BoundExpression):
+    def __init__(self, globals_dict, name, args, kwargs):
+        super().__init__(globals_dict)
+        self.name = name
+        self.args = [build_expression(arg) for arg in args]
+        self.kwargs = {key: build_expression(value) for key, value in kwargs.items()}
+
+    def _bind(self, globals_dict):
+        function = globals_dict[self.name]
+        return function(*self.args, **self.kwargs)
+
+    def _unbound_repr(self):
+        return '{}({!r}, {!r}, {!r})'.format(
+            type(self).__name__,
+            self.name,
+            self.args,
+            self.kwargs,
+        )
+
+    def is_free(self, substitution=None):
+        for arg in itertools.chain(self.args, self.kwargs.values()):
+            if not arg.is_free(substitution):
+                return False
+        return True
+
+    def equals(self, other):
+        if type(self) != type(other) or self.name != other.name:
+            return False
+        if len(self.args) != len(other.args):
+            return False
+        if len(self.kwargs) != len(other.kwargs) or set(self.kwargs) != set(other.kwargs):
+            return False
+        if not all(a0.equals(a1) for a0, a1 in zip(self.args, other.args)):
+            return False
+        if not all(v0.equals(v1) for v0, v1 in zip(self.kwargs.values(), other.kwargs.values())):
+            return False
+        return True
+
+    def free_vars(self, substitution):
+        seen = set()
+        for arg in itertools.chain(self.args, self.kwargs.values()):
+            for var in arg.free_vars(substitution):
+                if var not in seen:
+                    yield var
+                    seen.add(var)
