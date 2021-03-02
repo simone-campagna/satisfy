@@ -675,6 +675,19 @@ class ModelSolver:
                 for c_var in c_vars:
                     var_bounds[c_var] += len(c_vars) - 1
 
+        ### domain reduction:
+        #   if a variable's domain has a single value, apply
+        #   all_different constraint to reduce other variables' domain
+        v_forbidden = collections.defaultdict(set)
+        for var1, domain in initial_domains.items():
+            if len(domain) == 1:
+                value = list(domain)[0]
+                for var2 in var_ad[var1]:
+                    v_forbidden[var2].add(value)
+        for var, forbidden_values in v_forbidden.items():
+            if forbidden_values:
+                initial_domains[var] = [value for value in initial_domains[var] if value not in forbidden_values]
+
         group_prio = {groupid: groupid for groupid in groups}  #idx for idx, groupid in enumerate(sorted(groups, key=lambda x: (group_bounds[x], group_sizes[x]), reverse=True))}
         var_group_prio = {}
         for var_name in var_names:
@@ -708,6 +721,10 @@ class ModelSolver:
     @property
     def model(self):
         return self._model
+
+    @property
+    def model_info(self):
+        return self._model_info
 
     @property
     def solver(self):
