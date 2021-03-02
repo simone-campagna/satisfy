@@ -292,6 +292,7 @@ def sat_solve(sat, timeout, limit, profile=False, show_stats=False, show_model=F
             if show_model:
                 renderer.show_model()
 
+            sat.io_begin(input_file, output_file, model_solver)
             with profiling(profile):
                 for solution in model_solver:
                     sat.io_solution(input_file, output_file, model_solver, solution)

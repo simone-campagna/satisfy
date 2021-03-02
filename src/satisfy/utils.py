@@ -1,4 +1,5 @@
 import collections
+import inspect
 import time
 
 __all__ = [
@@ -8,6 +9,7 @@ __all__ = [
     'Undefined',
     'Timer',
     'Stats',
+    'safe_call',
 ]
 
 
@@ -84,3 +86,15 @@ class Timer(object):
             return self.stats.elapsed + (time.time() - self._t_start)
         else:
             return self.stats.elapsed
+
+
+def safe_call(function, **kwargs):
+    parameters = inspect.signature(function).parameters
+    for p in parameters.values():
+        if p.kind == p.VAR_KEYWORD:
+            return function(**kwargs)
+    safe_kwargs = {}
+    for key, value in kwargs.items():
+        if key in parameters:
+            safe_kwargs[key] = value
+    return function(**safe_kwargs)

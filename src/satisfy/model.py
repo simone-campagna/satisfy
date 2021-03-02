@@ -135,14 +135,6 @@ class Model(object):
             domain=domain)
         return variable
 
-    def set_variable_domain(self, variable, domain):
-        self._check_domain(domain)
-        if isinstance(variable, Variable):
-            var_name = variable.name
-        else:
-            var_name = variable
-        self.__variables[var_name].domain = domain
-
     def add_bool_variable(self, *, name=None):
         return self.add_int_variable(domain=(0, 1), name=name)
 
@@ -187,6 +179,14 @@ class Model(object):
         else:
             var_name = var
         return self.__variables[var_name].domain
+
+    def set_var_domain(self, variable, domain):
+        self._check_domain(domain)
+        if isinstance(variable, Variable):
+            var_name = variable.name
+        else:
+            var_name = variable
+        self.__variables[var_name].domain = domain
 
     def solver(self, **kwargs):
         return Solver(**kwargs)

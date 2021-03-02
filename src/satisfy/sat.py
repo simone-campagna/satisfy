@@ -21,6 +21,7 @@ from .expression import (
 from .model import Model
 from .solver import Solver, SelectVar, SelectValue
 from .objective import Maximize, Minimize
+from .utils import safe_call
 from . import expression as _expr
 
 
@@ -190,14 +191,38 @@ class SatPySource:
         self.variables = variables
         self.ast = ast.parse(self.source)
 
-    def compile(self, globals_dict):
+    def make_callback(self, registry, scope):
+        def callback(function):
+            registry[scope].append(function)
+            return function
+        return callback
+
+    def compile(self, globals_dict, callback_registry, scope_mapping):
         gdict = {}
+        for scope, name in scope_mapping.items():
+            gdict[name] = self.make_callback(callback_registry, scope)
         result = exec(self.source, gdict)
+        for name in scope_mapping.values():
+            gdict.pop(name, None)
         if self.variables is None:
             globals_dict.update(gdict)
         else:
             globals_dict.update({key: gdict[key] for key in self.variables})
         return result
+
+
+class SatModel(Model):
+    def __init__(self, *, options=None, **kwargs):
+        if options is None:
+            options = {}
+        self.options = options
+        super().__init__(**kwargs)
+
+    def solve(self, **kwargs):
+        for key, value in self.options.items():
+            if key not in kwargs:
+                kwargs[key] = value
+        return super().solve(**kwargs)
 
 
 class Sat:
@@ -223,11 +248,14 @@ class Sat:
         self.__var_domains = {}
         self.__macro_names = []
         self.__macros = {}
-        self.__select_var = SelectVar.max_bound
-        self.__select_value = SelectValue.min_value
-        self.__limit = None
-        self.__timeout = None
+        self.__solver_options = {}
         self.__io = {
+            self.SCOPE_BEGIN: [],
+            self.SCOPE_SOLUTION: [],
+            self.SCOPE_OPTIMAL_SOLUTION: [],
+            self.SCOPE_END: [],
+        }
+        self.__io_callbacks = {
             self.SCOPE_BEGIN: [],
             self.SCOPE_SOLUTION: [],
             self.SCOPE_OPTIMAL_SOLUTION: [],
@@ -292,11 +320,17 @@ class Sat:
             input_file = sys.stdin
         if output_file is None:
             output_file = sys.stdout
-        self.io_begin(input_file, output_file)
+        self.io_init(input_file, output_file)
 
         globals_dict = {}
+        scope_mapping = {
+            self.SCOPE_BEGIN: 'begin',
+            self.SCOPE_SOLUTION: 'solution',
+            self.SCOPE_OPTIMAL_SOLUTION: 'optimal_solution',
+            self.SCOPE_END: 'end',
+        }
         for py_source in self.__py_sources:
-            py_source.compile(globals_dict)
+            py_source.compile(globals_dict, self.__io_callbacks, scope_mapping)
 
         macros = self.expand_macros()
         domains = {}
@@ -306,7 +340,7 @@ class Sat:
                 domain.extend(term.values(self))
             domains[domain_name] = domain
 
-        model = Model(**self.model_kwargs)
+        model = SatModel(**self.model_kwargs, options=self.__solver_options)
         for key, value in globals_dict.items():
             model.add_global_symbol(key, value)
 
@@ -390,7 +424,48 @@ class Sat:
         for io_obj in self.__io[scope]:
             io_obj(input_file, output_file, **data)
 
-    def io_begin(self, input_file, output_file):
+    def io_begin_callbacks(self, input_file, output_file, model_solver):
+        for io_callback in self.__io_callbacks[self.SCOPE_BEGIN]:
+            safe_call(io_callback,
+                      input_file=input_file, output_file=output_file,
+                      model_solver=model_solver,
+                      state=model_solver.state.state,
+                      stats=model_solver.stats,
+            )
+
+    def io_solution_callbacks(self, input_file, output_file, model_solver, solution):
+        for io_callback in self.__io_callbacks[self.SCOPE_SOLUTION]:
+            safe_call(io_callback,
+                      input_file=input_file, output_file=output_file,
+                      solution=solution,
+                      model_solver=model_solver,
+                      state=model_solver.state.state,
+                      stats=model_solver.stats,
+            )
+
+    def io_optimal_solution_callbacks(self, input_file, output_file, model_solver):
+        for io_callback in self.__io_callbacks[self.SCOPE_OPTIMAL_SOLUTION]:
+            safe_call(io_callback,
+                      input_file=input_file, output_file=output_file,
+                      model_solver=model_solver,
+                      optimization_result=model_solver.get_optimization_result(),
+                      state=model_solver.state.state,
+                      stats=model_solver.stats,
+            )
+
+    def io_end_callbacks(self, input_file, output_file, model_solver):
+        for io_callback in self.__io_callbacks[self.SCOPE_END]:
+            safe_call(io_callback,
+                      input_file=input_file, output_file=output_file,
+                      model_solver=model_solver,
+                      state=model_solver.state.state,
+                      stats=model_solver.stats,
+            )
+
+    def io_begin(self, input_file, output_file, model_solver):
+        self.io_begin_callbacks(input_file, output_file, model_solver)
+
+    def io_init(self, input_file, output_file):
         macros = self.expand_macros(force_input_const_eval=False)
         for io_obj in self.__io[self.SCOPE_BEGIN]:
             io_obj(input_file, output_file, **macros)
@@ -402,6 +477,7 @@ class Sat:
         data['_SOLUTION'] = solution
         data['_INDEX'] = data['_COUNT'] - 1
         self._do_io(self.SCOPE_SOLUTION, input_file, output_file, data)
+        self.io_solution_callbacks(input_file, output_file, model_solver, solution)
 
     def io_optimal_solution(self, input_file, output_file, model_solver):
         model = model_solver.model
@@ -419,10 +495,12 @@ class Sat:
             data['_IS_OPTIMAL'] = optimization_result.is_optimal
             data['_OPTIMAL'] = optimal
             self._do_io(self.SCOPE_OPTIMAL_SOLUTION, input_file, output_file, data)
+        self.io_optimal_solution_callbacks(input_file, output_file, model_solver)
 
     def io_end(self, input_file, output_file, model_solver):
         data = self._get_data(model_solver=model_solver)
         self._do_io(self.SCOPE_END, input_file, output_file, data)
+        self.io_end_callbacks(input_file, output_file, model_solver)
 
     def add_sat_constraint(self, p, constraint):
         self.__constraints.append(constraint)
@@ -439,31 +517,25 @@ class Sat:
         if option_name == 'select_var':
             if not hasattr(SelectVar, option_value):
                 raise SatSyntaxError("illegal SelectVar {!r}".format(option_value))
-            self.__select_var = getattr(SelectVar, option_value)
+            self.__solver_options[option_name] = getattr(SelectVar, option_value)
         elif option_name == 'select_value':
             if not hasattr(SelectValue, option_value):
                 raise SatSyntaxError("illegal SelectValue {!r}".format(option_value))
-            self.__select_option_value = getattr(SelectValue, option_value)
+            self.__solver_options[option_name] = getattr(SelectValue, option_value)
         elif option_name == 'limit':
             if not isinstance(option_value, int):
                 raise SatSyntaxError("illegal limit {!r} of type {}".format(option_value, type(option_value).__name__))
-            self.__limit = option_value
+            self.__solver_options[option_name] = option_value
         elif option_name == 'timeout':
             if not isinstance(option_value, (int, float)):
                 raise SatSyntaxError("illegal limit {!r} of type {}".format(option_value, type(option_value).__name__))
-            self.__timeout = option_value
+            self.__solver_options[option_name] = option_value
+        elif option_name == 'reduce_max_depth':
+            if not isinstance(option_value, int):
+                raise SatSyntaxError("illegal reduce_max_depth {!r} of type {}".format(option_value, type(option_value).__name__))
+            self.__solver_options[option_name] = int(option_value)
         else:
             raise SatSyntaxError("unknown option {!r}".format(option_name))
-
-    def solver(self, **kwargs):
-        args = dict(
-            limit=kwargs.pop('limit', self.__limit),
-            timeout=kwargs.pop('timeout', self.__timeout),
-            select_var=kwargs.pop('select_var', self.__select_var),
-            select_value=kwargs.pop('select_value', self.__select_value),
-            **kwargs
-        )
-        return Solver(**args)
 
 
 class SatLexer:
@@ -677,6 +749,10 @@ class SatParser:
     def p_globals_vars_all(self, p):
         '''globals_vars : DEFINE R_SQUARE_BRACKET'''
         p[0] = None
+        
+    def p_globals_vars_none(self, p):
+        '''globals_vars : DEFINE COLON R_SQUARE_BRACKET'''
+        p[0] = []
         
     def p_globals_vars_selected(self, p):
         '''globals_vars : DEFINE COLON var_list R_SQUARE_BRACKET'''
