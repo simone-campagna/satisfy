@@ -61,6 +61,10 @@ class ExpressionBase(abc.ABC):
         return True
 
     @abc.abstractmethod
+    def is_externally_updated(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def evaluate(self, substitution):
         raise NotImplementedError()
 
@@ -233,6 +237,9 @@ class Const(Expression):
     def __init__(self, value):
         self._value = value
 
+    def is_externally_updated(self):
+        return False
+
     def free_vars(self, substitution):
         yield from ()
 
@@ -374,6 +381,9 @@ class InputConst(Const):
     def has_value(self):
         return self._value is not None
 
+    def is_externally_updated(self):
+        return False
+
     def _get_value(self):
         if self._value is None:
             self._value = self.reader()
@@ -397,6 +407,9 @@ class Collection(Expression):
                 if var not in vlist:
                     vlist.append(var)
         self._vars = tuple(vlist)
+
+    def is_externally_updated(self):
+        return any(expression.is_externally_updated() for expression in self._expressions)
 
     @classmethod
     def is_commutative(cls):
@@ -613,6 +626,7 @@ class Eq(BinOp):
         return True
 
     def _op(self, left_value, right_value):
+        print("==", left_value, right_value)
         return left_value == right_value
 
 
@@ -813,6 +827,9 @@ class Variable(Expression):
     def name(self):
         return self._name
 
+    def is_externally_updated(self):
+        return False
+
     def free_vars(self, substitution):
         if self._name not in substitution:
             yield self._name
@@ -873,6 +890,9 @@ class GlobalVariable(Expression):
         super().__init__()
         self.name = name
 
+    def is_externally_updated(self):
+        return True
+
     def is_free(self, substitution=None):
         return True
 
@@ -899,6 +919,9 @@ class FunctionCall(Expression):
     @property
     def function(self):
         return self.globals_dict[self.name]
+
+    def is_externally_updated(self):
+        return True
 
     def is_free(self, substitution=None):
         for arg in itertools.chain(self.args, self.kwargs.values()):
@@ -964,6 +987,9 @@ class BoundExpression(ExpressionBase):
     @property
     def expression(self):
         return self._expression
+
+    def is_externally_updated(self):
+        return self._expression.is_externally_updated()
 
     def is_compiled(self):
         return self._compiled_function is not None

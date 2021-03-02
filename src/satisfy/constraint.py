@@ -31,6 +31,9 @@ class ConstConstraint(Constraint, FakeCompileMixin):
     def __init__(self, value):
         self._value = bool(value)
 
+    def is_externally_updated(self):
+        return False
+
     def free_vars(self, substitution):
         yield from ()
 
@@ -47,6 +50,9 @@ class ConstConstraint(Constraint, FakeCompileMixin):
 class AllDifferentConstraint(Constraint, FakeCompileMixin):
     def __init__(self, var_names):
         self._var_names = frozenset(var_names)
+
+    def is_externally_updated(self):
+        return False
 
     def free_vars(self, substitution):
         yield from self._var_names.difference(substitution.keys())

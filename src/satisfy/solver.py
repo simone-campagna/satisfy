@@ -652,20 +652,21 @@ class ModelSolver:
                     for other_var_name in other_var_names:
                         var_map[var_name][other_var_name] += 1
             else:
-                if reduce_max_depth >= 0 and len(c_vars) == 0:
-                    b_value = constraint.evaluate({})
-                    if not b_value:
-                        solvable = False
-                    accepted = False
-                elif reduce_max_depth >= 1 and len(c_vars) == 1:
-                    c_var = list(c_vars)[0]
-                    var_domain = []
-                    for value in initial_domains[c_var]:
-                        if constraint.evaluate({c_var: value}):
-                            var_domain.append(value)
-                    if initial_domains[c_var] != var_domain:
-                        initial_domains[c_var] = var_domain
-                    accepted = False
+                if not constraint.is_externally_updated():
+                    if reduce_max_depth >= 0 and len(c_vars) == 0:
+                        b_value = constraint.evaluate({})
+                        if not b_value:
+                            solvable = False
+                        accepted = False
+                    elif reduce_max_depth >= 1 and len(c_vars) == 1:
+                        c_var = list(c_vars)[0]
+                        var_domain = []
+                        for value in initial_domains[c_var]:
+                            if constraint.evaluate({c_var: value}):
+                                var_domain.append(value)
+                        if initial_domains[c_var] != var_domain:
+                            initial_domains[c_var] = var_domain
+                        accepted = False
                 for var_name in c_vars:
                     var_constraints[var_name].append(constraint)
                     other_var_names = c_vars.difference({var_name})
@@ -805,7 +806,6 @@ class ModelSolver:
 
                 reduced_domain = [value for value in initial_domains[var_name] if value not in forbidden_values]
                 for constraint in enabled_constraints:
-                    #print(":::", constraint.expression)
                     c_fun = constraint.evaluate
                     nr_dom = []
                     for value in reduced_domain:
