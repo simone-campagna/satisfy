@@ -45,6 +45,7 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
         'var_group_prio',
         'groups',
         'var_groups',
+        'initial_substitution',
         'extra',
     ]
 )
@@ -333,7 +334,7 @@ class Max_BoundLenSelector(BoundVarSelector):
 
 class DomainVarSelector(DynamicVarSelector):
     def sort_var_names(self, unbound_var_names, model_info, reverse):
-        var_domains = model_info.original_domains
+        var_domains = model_info.initial_domains
         if reverse:
             unbound_var_names.reverse()  # stable sort
         unbound_var_names.sort(key=lambda v: len(var_domains[v]), reverse=reverse)
@@ -481,6 +482,7 @@ class Solver:
                  timeout=None,
                  limit=None,
                  reduce_max_depth=1,
+                 discard_const_vars=False,
                  compile_constraints=True):
         self._select_var = None
         self.select_var = select_var
@@ -490,6 +492,8 @@ class Solver:
         self.timeout = timeout
         self._limit = None
         self.limit = limit
+        self._discard_const_vars = None
+        self.discard_const_vars = discard_const_vars
         self._compile_constraints = None
         self.compile_constraints = compile_constraints
         self._reduce_max_depth = None
@@ -538,6 +542,14 @@ class Solver:
     @compile_constraints.setter
     def compile_constraints(self, value):
         self._compile_constraints = bool(value)
+
+    @property
+    def discard_const_vars(self):
+        return self._discard_const_vars
+
+    @discard_const_vars.setter
+    def discard_const_vars(self, value):
+        self._discard_const_vars = bool(value)
 
     @property
     def reduce_max_depth(self):
@@ -603,6 +615,7 @@ class ModelSolver:
         self._state = SolverState()
         select_var = solver.select_var
         select_value = solver.select_value
+        discard_const_vars = solver.discard_const_vars
 
         # 0. objectives:
         objective_functions = []
@@ -680,15 +693,8 @@ class ModelSolver:
         #   if a variable's domain has a single value, apply
         #   all_different constraint to reduce other variables' domain
         vars_set = set(initial_domains)
+        discarded_var_names = set()
         while vars_set:
-            # print("again")
-            # v_dict = collections.defaultdict(list)
-            # for var in vars_set:
-            #     v_dict[len(initial_domains[var])].append(var)
-            # for l in sorted(v_dict):
-            #     print("   ", l, v_dict[l])
-            # input("---")
-
             v_forbidden = collections.defaultdict(set)
             reduced_vars = set()
             for var1 in vars_set:
@@ -698,12 +704,46 @@ class ModelSolver:
                     value = list(domain)[0]
                     for var2 in var_ad[var1]:
                         v_forbidden[var2].add(value)
+            discarded_var_names.update(reduced_vars)
             if not reduced_vars:
                 break
             vars_set -= reduced_vars
             for var, forbidden_values in v_forbidden.items():
                 if forbidden_values:
                     initial_domains[var] = [value for value in initial_domains[var] if value not in forbidden_values]
+
+        initial_substitution = {}
+        if discard_const_vars and discarded_var_names:
+            for var_name in discarded_var_names:
+                var_names.remove(var_name)
+                var_constraints.pop(var_name, None)
+                var_ad.pop(var_name, None)
+                var_map.pop(var_name, None)
+                var_bounds.pop(var_name, None)
+                var_groups.pop(var_name, None)
+                domain = initial_domains.pop(var_name)
+                initial_substitution[var_name] = list(domain)[0]
+
+            for var_name in var_names_set.difference(discarded_var_names):
+                var_ad[var_name].difference_update(discarded_var_names)
+                for discarded_var_name in discarded_var_names:
+                    discarded_bounds = var_map[var_name].pop(discarded_var_name, 0)
+                    var_bounds[var_name] -= discarded_bounds
+
+        # REM for constraint in model_constraints:
+        # REM     if constraint.is_externally_updated() or constraint.
+        # print("discarded_var_names:", len(discarded_var_names), sorted(discarded_var_names))
+        # print("var_names:", len(var_names), sorted(var_names))
+        # for var_name in sorted(var_names):
+        #     print("===", var_name)
+        #     print("    constraints:", len(var_constraints[var_name]), sorted(var_constraints[var_name]))
+        #     print("    ad:", var_ad[var_name])
+        #     print("    map:", var_map[var_name])
+        #     print("    bounds:", var_bounds[var_name])
+        #     print("    groups:", var_groups[var_name])
+        #     print("    idom:", initial_domains[var_name])
+        #     if var_name in initial_substitution:
+        #         print("    isub:", initial_substitution[var_name])
 
         group_prio = {groupid: groupid for groupid in groups}  #idx for idx, groupid in enumerate(sorted(groups, key=lambda x: (group_bounds[x], group_sizes[x]), reverse=True))}
         var_group_prio = {}
@@ -715,6 +755,9 @@ class ModelSolver:
 
         reduced_domains = {}
         domains = collections.ChainMap(reduced_domains, initial_domains)
+        groups = {}
+        var_groups = {}
+        var_group_prio = {}
         self._model_info = ModelInfo(
             model=model,
             solver=solver,
@@ -732,8 +775,30 @@ class ModelSolver:
             var_group_prio=var_group_prio,
             groups=groups,
             var_groups=var_groups,
+            initial_substitution=initial_substitution,
             extra={}
         )
+        if False:
+            import json
+            def _sorted_dset(dct):
+                return {key: sorted(value) for key, value in dct.items()}
+
+            dct = {
+                'solvable': solvable,
+                # 'original_domains': _sorted_dset(original_domains),
+                'initial_domains': _sorted_dset(initial_domains),
+                'reduced_domains': _sorted_dset(reduced_domains),
+                'var_names': var_names,
+                'var_bounds': var_bounds,
+                'var_constraints': var_constraints,
+                'var_ad': _sorted_dset(var_ad),
+                'var_map': var_map,
+                # 'var_group_prio': var_group_prio,
+                # 'groups': _sorted_dset(groups),
+                # 'var_groups': var_groups,
+                'initial_substitution': initial_substitution,
+            }
+            print(json.dumps(dct, indent=4, sort_keys=1))
 
     @property
     def model(self):
@@ -792,6 +857,7 @@ class ModelSolver:
         var_ad = model_info.var_ad
         var_constraints = model_info.var_constraints
         objective_functions = model_info.objective_functions
+        initial_substitution = model_info.initial_substitution
 
         # 2. solve:
         timer.start()
@@ -800,7 +866,7 @@ class ModelSolver:
             unbound_var_names = list(var_names)
             select_var.init(unbound_var_names, model_info)
             var_name, bound_var_names, unbound_var_names, enabled_constraints = select_var([], unbound_var_names, model_info)
-            stack.append((var_name, bound_var_names, unbound_var_names, enabled_constraints, {}))
+            stack.append((var_name, bound_var_names, unbound_var_names, enabled_constraints, initial_substitution.copy()))
             for var_name in var_names:
                 initial_domain = model_info.initial_domains[var_name]
                 select_value.init(initial_domain)

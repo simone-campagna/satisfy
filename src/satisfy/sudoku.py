@@ -59,7 +59,7 @@ class Sudoku(Model):
             for cell in matrix_row:
                 value = schema[cell.row_index][cell.col_index]
                 if value in null_values:
-                    variable = self.add_int_variable(domain=cell.domain, name="c_{}_{}".format(cell.row_index, cell.col_index))
+                    variable = self.add_int_variable(domain=cell.domain, name="a{}{}".format(cell.row_index + 1, cell.col_index + 1))
                     cell.variables.append(variable)
                     row_variables[cell.row_index].append(variable)
                     col_variables[cell.col_index].append(variable)

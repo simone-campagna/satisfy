@@ -75,6 +75,8 @@ a98 == 7
 option(select_var, min_bound)
 option(select_value, min_value)
 option(reduce_max_depth, 1)
+option(discard_const_vars, 1)
+option(limit, 1)
 
 
 [define:] [[[
@@ -85,10 +87,8 @@ def show_model(output_file, model_solver):
         'a{}{}'.format(i, j): '.' for i in range(1, 10) for j in range(1, 10)
     }
     model_info = model_solver.model_info
-    for var_name, domain in model_info.initial_domains.items():
-        if len(domain) == 1:
-            value = list(domain)[0]
-            data[var_name] = str(value)
+    for var_name, value in model_info.initial_substitution.items():
+        data[var_name] = str(value)
     print("""\
 ┌─────────┬─────────┬─────────┐
 │ {a11}  {a12}  {a13} │ {a14}  {a15}  {a16} │ {a17}  {a18}  {a19} │

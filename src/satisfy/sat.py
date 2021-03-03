@@ -522,18 +522,18 @@ class Sat:
             if not hasattr(SelectValue, option_value):
                 raise SatSyntaxError("illegal SelectValue {!r}".format(option_value))
             self.__solver_options[option_name] = getattr(SelectValue, option_value)
-        elif option_name == 'limit':
-            if not isinstance(option_value, int):
-                raise SatSyntaxError("illegal limit {!r} of type {}".format(option_value, type(option_value).__name__))
-            self.__solver_options[option_name] = option_value
-        elif option_name == 'timeout':
+        elif option_name in ['timeout']:
             if not isinstance(option_value, (int, float)):
-                raise SatSyntaxError("illegal limit {!r} of type {}".format(option_value, type(option_value).__name__))
+                raise SatSyntaxError("illegal {} = {!r} of type {}".format(option_name, option_value, type(option_value).__name__))
             self.__solver_options[option_name] = option_value
-        elif option_name == 'reduce_max_depth':
+        elif option_name in ['limit', 'reduce_max_depth']:
             if not isinstance(option_value, int):
-                raise SatSyntaxError("illegal reduce_max_depth {!r} of type {}".format(option_value, type(option_value).__name__))
-            self.__solver_options[option_name] = int(option_value)
+                raise SatSyntaxError("illegal {} = {!r} of type {}".format(option_name, option_value, type(option_value).__name__))
+            self.__solver_options[option_name] = option_value
+        elif option_name in ['compile_constraints', 'discard_const_vars']:
+            if not isinstance(option_value, (int, bool)):
+                raise SatSyntaxError("illegal option {} = {!r} of type {}".format(option_name, option_value, type(option_value).__name__))
+            self.__solver_options[option_name] = bool(option_value)
         else:
             raise SatSyntaxError("unknown option {!r}".format(option_name))
 
