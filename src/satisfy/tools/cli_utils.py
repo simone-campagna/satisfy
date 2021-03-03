@@ -140,11 +140,11 @@ class TextRenderer(Renderer):
             suffix = 's'
         if state.state is State.DONE:
             if stats.count == 1:
-                fmt = "Found unique solution{suffix} after {state.tries_count} tries in {stats.elapsed:.3f} seconds"
+                fmt = "Found unique solution{suffix} after {state.trials_count} trials in {stats.elapsed:.3f} seconds"
             else:
-                fmt = "Found all {stats.count} solution{suffix} after {state.tries_count} tries in {stats.elapsed:.3f} seconds"
+                fmt = "Found all {stats.count} solution{suffix} after {state.trials_count} trials in {stats.elapsed:.3f} seconds"
         else:
-            fmt = "Found {stats.count} partial solution{suffix} after {state.tries_count} tries in {stats.elapsed:.3f} seconds [{state_name} reached]"
+            fmt = "Found {stats.count} partial solution{suffix} after {state.trials_count} trials in {stats.elapsed:.3f} seconds [{state_name} reached]"
         state_name_tr = {
             State.INTERRUPT_TIMEOUT: 'timeout',
             State.INTERRUPT_LIMIT: 'limit',

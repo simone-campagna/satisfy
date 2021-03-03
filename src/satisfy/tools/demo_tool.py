@@ -93,7 +93,7 @@ Satisfy tool - show some examples.
 
 The command has bash autocompletion; to enable it run this command:
 
-  $ eval "$(register-python-argcomplete satisfy-demo)"
+  $ eval "$(register-python-argcomplete sat-demo)"
 
 """,
         **common_args)
