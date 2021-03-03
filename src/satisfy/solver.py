@@ -53,7 +53,7 @@ ModelInfo = collections.namedtuple(  # pylint: disable=invalid-name
 
 OptimizationResult = collections.namedtuple(  # pylint: disable=invalid-name
     "OptimizationResult",
-    "is_optimal state count solution")
+    "is_optimal state trials_count solutions_count solution")
 
 
 class SelectNamespace:
@@ -334,7 +334,7 @@ class Max_BoundLenSelector(BoundVarSelector):
 
 class DomainVarSelector(DynamicVarSelector):
     def sort_var_names(self, unbound_var_names, model_info, reverse):
-        var_domains = model_info.initial_domains
+        var_domains = model_info.domains
         if reverse:
             unbound_var_names.reverse()  # stable sort
         unbound_var_names.sort(key=lambda v: len(var_domains[v]), reverse=reverse)
@@ -574,7 +574,8 @@ class State(enum.Enum):
 class SolverState:
     def __init__(self):
         self._timer = Timer()
-        self._count = 0
+        self._trials_count = 0
+        self._solutions_count = 0
         self._current_solution = None
         self._state = State.RUNNING
         self.stats = self._timer.stats
@@ -592,8 +593,12 @@ class SolverState:
         return self._current_solution
 
     @property
-    def count(self):
-        return self._count
+    def trials_count(self):
+        return self._trials_count
+
+    @property
+    def solutions_count(self):
+        return self._solutions_count
 
     @state.setter
     def state(self, value):
@@ -601,9 +606,12 @@ class SolverState:
             raise TypeError(value)
         self._state = value
 
+    def add_try(self):
+        self._trials_count += 1
+
     def add_solution(self, solution):
         self._current_solution = solution
-        self._count += 1
+        self._solutions_count += 1
 
 
 class ModelSolver:
@@ -730,21 +738,6 @@ class ModelSolver:
                     discarded_bounds = var_map[var_name].pop(discarded_var_name, 0)
                     var_bounds[var_name] -= discarded_bounds
 
-        # REM for constraint in model_constraints:
-        # REM     if constraint.is_externally_updated() or constraint.
-        # print("discarded_var_names:", len(discarded_var_names), sorted(discarded_var_names))
-        # print("var_names:", len(var_names), sorted(var_names))
-        # for var_name in sorted(var_names):
-        #     print("===", var_name)
-        #     print("    constraints:", len(var_constraints[var_name]), sorted(var_constraints[var_name]))
-        #     print("    ad:", var_ad[var_name])
-        #     print("    map:", var_map[var_name])
-        #     print("    bounds:", var_bounds[var_name])
-        #     print("    groups:", var_groups[var_name])
-        #     print("    idom:", initial_domains[var_name])
-        #     if var_name in initial_substitution:
-        #         print("    isub:", initial_substitution[var_name])
-
         group_prio = {groupid: groupid for groupid in groups}  #idx for idx, groupid in enumerate(sorted(groups, key=lambda x: (group_bounds[x], group_sizes[x]), reverse=True))}
         var_group_prio = {}
         for var_name in var_names:
@@ -831,7 +824,8 @@ class ModelSolver:
             return OptimizationResult(
                 is_optimal=is_optimal,
                 state=state,
-                count=self._state.count,
+                trials_count=self._state.trials_count,
+                solutions_count=self._state.solutions_count,
                 solution=self._state.solution)
 
     def __iter__(self):
@@ -915,6 +909,7 @@ class ModelSolver:
                 continue
             # select value:
             value, reduced_domain = select_value(var_name, substitution, reduced_domain)
+            state.add_try()
             substitution[var_name] = value
             if unbound_var_names:
                 next_var_name, next_bound_var_names, next_unbound_var_names, next_enabled_constraints = select_var(list(bound_var_names), list(unbound_var_names), model_info)
@@ -929,7 +924,7 @@ class ModelSolver:
                 self._solution = substitution
                 for objective_function in objective_functions:
                     objective_function.add_solution(substitution)
-                if limit is not None and state.count >= limit:
+                if limit is not None and state.solutions_count >= limit:
                     timer.abort()
                     state.state = State.INTERRUPT_LIMIT
                     return

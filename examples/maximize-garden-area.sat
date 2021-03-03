@@ -21,7 +21,7 @@ maximum area. What is the maximum area?
 N := [input] "How many meters of fence? "
 
 # Print a line for each found solution:
-[solution] "solution[{_COUNT:2d}]: x={x} y={y} area={area} [elapsed: {_ELAPSED:.2f}s]"
+[solution] "solution[{_SOLUTIONS_COUNT:2d}]: x={x} y={y} area={area} [elapsed: {_ELAPSED:.2f}s]"
 
 # Print the optimal solution:
 [optimal-solution] [[[
@@ -38,7 +38,7 @@ N := [input] "How many meters of fence? "
 ]]]
 
 # Print something at the end:
-[end] "All done! [solutions: {_COUNT}, elapsed: {_ELAPSED:.2f}s]"
+[end] "All done! [trials: {_TRIALS_COUNT}, solutions: {_SOLUTIONS_COUNT}, elapsed: {_ELAPSED:.2f}s]"
 
 ### DOMAIN definition:
 D = [1:N]

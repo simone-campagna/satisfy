@@ -140,17 +140,17 @@ class TextRenderer(Renderer):
             suffix = 's'
         if state.state is State.DONE:
             if stats.count == 1:
-                fmt = "Found unique solution{suffix} in {stats.elapsed:.3f} seconds"
+                fmt = "Found unique solution{suffix} after {state.tries_count} tries in {stats.elapsed:.3f} seconds"
             else:
-                fmt = "Found all {stats.count} solution{suffix} in {stats.elapsed:.3f} seconds"
+                fmt = "Found all {stats.count} solution{suffix} after {state.tries_count} tries in {stats.elapsed:.3f} seconds"
         else:
-            fmt = "Found {stats.count} partial solution{suffix} in {stats.elapsed:.3f} seconds [{state} reached]"
+            fmt = "Found {stats.count} partial solution{suffix} after {state.tries_count} tries in {stats.elapsed:.3f} seconds [{state_name} reached]"
         state_name_tr = {
             State.INTERRUPT_TIMEOUT: 'timeout',
             State.INTERRUPT_LIMIT: 'limit',
         }
         state_name = state_name_tr.get(state.state, state.state.name)
-        self.print(fmt.format(suffix=suffix, stats=stats, state=state_name))
+        self.print(fmt.format(suffix=suffix, stats=stats, state=state, state_name=state_name))
 
     def _impl_render_solution(self, solution):
         dct = {}

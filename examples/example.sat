@@ -69,7 +69,7 @@ option(select_value, random)
 # all the output lines are shown. Variables in {...} are
 # substituted, according to python string formatting.
 [solution] [[[
-=== solution[{_COUNT}]
+=== solution[{_SOLUTIONS_COUNT}]
 x is {x:2d}
 y is {y:2d}
 z is {z:2d}

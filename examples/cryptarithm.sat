@@ -38,7 +38,7 @@ DDH := digits(D, D, H)
 
 # Solution output:
 [solution] [[[
-=== solution [{_COUNT:2d}]:
+=== solution [{_SOLUTIONS_COUNT:2d}]:
 
     {AB} * {C} == {DBE}
      +   -      -

@@ -409,12 +409,13 @@ class Sat:
         }
         if model_solver is not None:
             data['_STATE'] = model_solver.state.state.name
-            data['_COUNT'] =  model_solver.stats.count
+            data['_SOLUTIONS_COUNT'] =  model_solver.state.solutions_count
+            data['_TRIALS_COUNT'] =  model_solver.state.trials_count
             data['_ELAPSED'] = model_solver.stats.elapsed
         if solution is not None:
             data['_SOLUTION'] = solution
-            if '_COUNT' in data:
-                data['_INDEX'] = data['_COUNT'] - 1
+            if '_SOLUTIONS_COUNT' in data:
+                data['_INDEX'] = data['_SOLUTIONS_COUNT'] - 1
             data.update(self.expand_macros(solution))
             for var_name, value in solution.items():
                 data[var_name] = value
@@ -474,8 +475,6 @@ class Sat:
 
     def io_solution(self, input_file, output_file, model_solver, solution):
         data = self._get_data(model_solver=model_solver, solution=solution)
-        data['_SOLUTION'] = solution
-        data['_INDEX'] = data['_COUNT'] - 1
         self._do_io(self.SCOPE_SOLUTION, input_file, output_file, data)
         self.io_solution_callbacks(input_file, output_file, model_solver, solution)
 

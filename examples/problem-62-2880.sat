@@ -18,7 +18,7 @@ v_sum == 62
 v_prod == 2880
 
 [solution] [[[
-=== solution[{_COUNT}]:
+=== solution[{_SOLUTIONS_COUNT}]:
 x = {x}
 y = {y}
 z = {z}
