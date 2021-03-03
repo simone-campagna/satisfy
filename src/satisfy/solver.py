@@ -679,15 +679,31 @@ class ModelSolver:
         ### domain reduction:
         #   if a variable's domain has a single value, apply
         #   all_different constraint to reduce other variables' domain
-        v_forbidden = collections.defaultdict(set)
-        for var1, domain in initial_domains.items():
-            if len(domain) == 1:
-                value = list(domain)[0]
-                for var2 in var_ad[var1]:
-                    v_forbidden[var2].add(value)
-        for var, forbidden_values in v_forbidden.items():
-            if forbidden_values:
-                initial_domains[var] = [value for value in initial_domains[var] if value not in forbidden_values]
+        vars_set = set(initial_domains)
+        while vars_set:
+            # print("again")
+            # v_dict = collections.defaultdict(list)
+            # for var in vars_set:
+            #     v_dict[len(initial_domains[var])].append(var)
+            # for l in sorted(v_dict):
+            #     print("   ", l, v_dict[l])
+            # input("---")
+
+            v_forbidden = collections.defaultdict(set)
+            reduced_vars = set()
+            for var1 in vars_set:
+                domain = initial_domains[var1]
+                if len(domain) == 1:
+                    reduced_vars.add(var1)
+                    value = list(domain)[0]
+                    for var2 in var_ad[var1]:
+                        v_forbidden[var2].add(value)
+            if not reduced_vars:
+                break
+            vars_set -= reduced_vars
+            for var, forbidden_values in v_forbidden.items():
+                if forbidden_values:
+                    initial_domains[var] = [value for value in initial_domains[var] if value not in forbidden_values]
 
         group_prio = {groupid: groupid for groupid in groups}  #idx for idx, groupid in enumerate(sorted(groups, key=lambda x: (group_bounds[x], group_sizes[x]), reverse=True))}
         var_group_prio = {}
