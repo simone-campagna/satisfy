@@ -8,40 +8,40 @@ from ..utils import INFINITY
 
 from .cli_utils import add_solve_arguments, solve_arguments
 
-from .demo_cryptarithm import (
+from .solve_cryptarithm import (
     cryptarithm,
     default_cryptarithm_system,
 )
 from .einstein_riddle import (
     EinsteinRiddle,
 )
-from .demo_einstein_riddle import (
+from .solve_einstein_riddle import (
     einstein,
 )
-from .demo_graph_labeling import (
+from .solve_graph_labeling import (
     graph_labeling,
     default_graph_labeling_source,
 )
-from .demo_knapsack import (
+from .solve_knapsack import (
     knapsack,
     default_knapsack_source,
 )
-from .demo_ascii_map_coloring import (
+from .solve_ascii_map_coloring import (
     ascii_map_coloring,
     default_ascii_map_coloring_source,
 )
-from .demo_nonogram import (
+from .solve_nonogram import (
     nonogram,
     default_nonogram_source,
 )
-from .demo_queens import (
+from .solve_queens import (
     queens,
 )
-from .demo_sudoku import (
+from .solve_sudoku import (
     sudoku,
     default_sudoku_source,
 )
-from .demo_four_rings import (
+from .solve_four_rings import (
     four_rings,
     four_rings_description,
 )
@@ -93,7 +93,7 @@ Satisfy tool - show some examples.
 
 The command has bash autocompletion; to enable it run this command:
 
-  $ eval "$(register-python-argcomplete sat-demo)"
+  $ eval "$(register-python-argcomplete sat-solve)"
 
 """,
         **common_args)

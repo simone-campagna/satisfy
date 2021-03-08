@@ -98,11 +98,11 @@ class Selector(abc.ABC):
 class ValueSelector(Selector):
     def init(self, domain):
         pass
- 
+
     @abc.abstractmethod
     def __call__(self, var_name, substitution, domain):
         raise NotImplementedError()
-    
+
     def __repr__(self):
         return 'SelectValue.{}'.format(self.name)
 
@@ -165,15 +165,15 @@ class VarSelector(Selector):
     @abc.abstractmethod
     def select_var(self, substitution, bound_var_names, unbound_var_names, model_info):
         raise NotImplementedError()
-    
+
     @abc.abstractmethod
     def select_enabled_constraints(self, substitution, bound_var_names, unbound_var_names, model_info):
         raise NotImplementedError()
-    
+
     def __repr__(self):
         return 'SelectVar.{}'.format(self.name)
 
-    
+
 class StaticVarSelector(VarSelector):
     def init(self, unbound_var_names, model_info):
         join_constraints = False  # no difference in performances
@@ -258,14 +258,14 @@ def count_min(values):
     else:
         return 0
 
-    
+
 def count_max(values):
     if values:
         return max(values)
     else:
         return 0
 
-    
+
 class BoundVarSelector(StaticVarSelector):
     __key_function__ = None
     __reverse__ = None
@@ -327,18 +327,64 @@ class Max_BoundLenSelector(BoundVarSelector):
 
 
 class DomainVarSelector(DynamicVarSelector):
+    def init(self, unbound_var_names, model_info):
+        self.domains_cache = None
+        self.bound_var_names = []
+#         self.enabled_constraints = None
+#
+#     def set_enabled_constraints(self, substitution, bound_var_names, unbound_var_names, model_info):
+#         if bound_var_names:
+#             self.enabled_constraints = super().select_enabled_constraints(substitution, bound_var_names, unbound_var_names, model_info)
+#         else:
+#             self.enabled_constraints = []
+#         return self.enabled_constraints
+#
+#     def select_enabled_constraints(self, substitution, bound_var_names, unbound_var_names, model_info):
+#         if self.enabled_constraints is None:
+#             self.set_enabled_constraints(substitution, bound_var_names, unbound_var_names, model_info)
+#         return self.enabled_constraints
+#
+#     def _reduce_domain(self, var_name, domain, substitution, bound_var_names, unbound_var_names, model_info):
+#         discarded = set()
+#         sub2 = substitution.copy()
+#         enabled_constraints = self.select_enabled_constraints(substitution, bound_var_names, unbound_var_names, model_info)
+#         if enabled_constraints:
+#             for value in domain:
+#                 sub2[var_name] = value
+#                 for constraint in self.select_enabled_constraints(substitution, bound_var_names, unbound_var_names, model_info):
+#                     if not constraint.evaluate(sub2):
+#                         discarded.add(value)
+#                         break
+#             domain.difference_update(discarded)
+
     def sort_var_names(self, substitution, bound_var_names, unbound_var_names, model_info, reverse):
-        var_domains = model_info.domains
+#         self.set_enabled_constraints(substitution, bound_var_names, unbound_var_names, model_info)
         if reverse:
             unbound_var_names.reverse()  # stable sort
-        forbidden_values = collections.defaultdict(set)
-        var_ad = model_info.var_ad
-        domains = {}
-        for v_var in unbound_var_names:
-            domain = set(var_domains[v_var])
-            for s_var in var_ad[v_var].intersection(substitution):
-                domain.discard(substitution[s_var])
-            domains[v_var] = domain
+        if self.domains_cache is None or self.bound_var_names != bound_var_names[:-1]:
+            # recreate domains cache:
+            var_domains = model_info.domains
+            forbidden_values = collections.defaultdict(set)
+            var_ad = model_info.var_ad
+            domains = {}
+            for v_var in unbound_var_names:
+                domain = set(var_domains[v_var])
+                for s_var in var_ad[v_var].intersection(substitution):
+                    domain.discard(substitution[s_var])
+#                 self._reduce_domain(v_var, domain, substitution, bound_var_names, unbound_var_names, model_info)
+                domains[v_var] = domain
+            self.domains_cache = domains
+        else:
+            # update domains cache:
+            last_var_name = bound_var_names[-1]
+            value = substitution[last_var_name]
+            var_ad = model_info.var_ad
+            for s_var in var_ad[last_var_name].intersection(unbound_var_names):
+                self.domains_cache[s_var].discard(value)
+#                 self._reduce_domain(last_var_name, self.domains_cache[s_var], substitution, bound_var_names, unbound_var_names, model_info)
+
+        self.bound_var_names = bound_var_names[:]
+        domains = self.domains_cache
         unbound_var_names.sort(key=lambda v: len(domains[v]), reverse=reverse)
 
 
@@ -398,7 +444,7 @@ class ActivationVarSelector(StaticVarSelector):
         v_constraints = {}
         for var_name, constraints in model_info.var_constraints.items():
             v_constraints[var_name] = set(constraints)
-        
+
         unbound_var_set = set(unbound_var_names)
         unbound_var_names.clear()
         while unbound_var_set:
@@ -444,7 +490,7 @@ class MaxActivationVarSelector(ActivationVarSelector):
 
 # class DistanceVarSelector(StaticVarSelector):
 #     __reverse__ = None
-# 
+#
 #     def sort_var_names(self, substitution, bound_var_names, unbound_var_names, model_info):
 #         bvars = []
 #         var_constraints = model_info.var_constraints
@@ -465,18 +511,18 @@ class MaxActivationVarSelector(ActivationVarSelector):
 #         bvars.reverse()
 #         unbound_var_names.clear()
 #         unbound_var_names.extend(bvars)
-#             
-#           
+#
+#
 # @SelectVar.__register__('min_distance')
 # class MinDistanceVarSelector(DistanceVarSelector):
 #     __reverse__ = True
-# 
-#     
+#
+#
 # @SelectVar.__register__('max_distance')
 # class MaxDistanceVarSelector(DistanceVarSelector):
 #     __reverse__ = False
 
-    
+
 class Solver:
     def __init__(self,
                  select_var=SelectVar.max_boundmin,

@@ -155,7 +155,7 @@ class Nonogram(Model):
 
     def solver(self, **kwargs):
         return Solver(
-            select_var=kwargs.pop('select_var', SelectVar.min_boundmax),
+            select_var=kwargs.pop('select_var', SelectVar.min_domain),
             select_value=kwargs.pop('select_value', SelectValue.min_value),
             **kwargs
         )

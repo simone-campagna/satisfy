@@ -370,7 +370,10 @@ class InputReader:
     def __call__(self):
         if self.prompt:
             print(self.prompt, end='', file=self.output_file, flush=True)
-        return self.input_type(self.input_file.readline())
+        value = self.input_type(self.input_file.readline())
+        if not self.output_file.isatty():
+            print(value, file=self.output_file, flush=True)
+        return value
 
 
 class InputConst(Const):

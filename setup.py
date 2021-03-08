@@ -36,7 +36,7 @@ if __name__ == "__main__":
         package_data={},
         entry_points={
             'console_scripts': [
-                'sat-demo=satisfy.tools.demo_tool:main',
+                'sat-solve=satisfy.tools.solve_tool:main',
                 'satisfy=satisfy.tools.sat_tool:main',
             ],
         },

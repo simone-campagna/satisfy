@@ -415,7 +415,7 @@ class Sat:
         if solution is not None:
             data['_SOLUTION'] = solution
             if '_SOLUTIONS_COUNT' in data:
-                data['_INDEX'] = data['_SOLUTIONS_COUNT'] - 1
+                data['_SOLUTION_INDEX'] = data['_SOLUTIONS_COUNT'] - 1
             data.update(self.expand_macros(solution))
             for var_name, value in solution.items():
                 data[var_name] = value
