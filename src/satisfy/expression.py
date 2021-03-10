@@ -1,4 +1,5 @@
 import abc
+import contextlib
 import functools
 import itertools
 import logging
@@ -35,6 +36,22 @@ EXPRESSION_GLOBALS = {
 
 def expression_globals():
     return EXPRESSION_GLOBALS
+
+
+@contextlib.contextmanager
+def set_expression_globals(globals_dict, merge=False):
+    global EXPRESSION_GLOBALS
+    old_globals_dict = EXPRESSION_GLOBALS
+    if merge:
+        new_globals_dict = old_globals_dict.copy()
+        new_globals_dict.update(globals_dict)
+    else:
+        new_globals_dict = globals_dict.copy()
+    try:
+        EXPRESSION_GLOBALS = new_globals_dict
+        yield
+    finally:
+        EXPRESSION_GLOBALS = old_globals_dict
 
 
 class ExpressionError(RuntimeError):
@@ -909,7 +926,7 @@ class GlobalVariable(Expression):
         return self.name
 
     def evaluate(self, substitution):
-        raise NotImplementedError()
+        return EXPRESSION_GLOBALS[self.name]
 
 
 class FunctionCall(Expression):
@@ -921,7 +938,7 @@ class FunctionCall(Expression):
 
     @property
     def function(self):
-        return self.globals_dict[self.name]
+        return EXPRESSION_GLOBALS[self.name]
 
     def is_externally_updated(self):
         return True
@@ -960,32 +977,18 @@ class FunctionCall(Expression):
         return '{}({})'.format(self.name, ', '.join(alist))
 
     def evaluate(self, substitution):
-        raise NotImplementedError()
-        # args = [arg.evaluate(substitution) for arg in self.args]
-        # kwargs = {key: value.evaluate(substitution) for key, value in self.kwargs.items()}
-        # return self.function(*args, **kwargs)
+        args = [arg.evaluate(substitution) for arg in self.args]
+        kwargs = {key: value.evaluate(substitution) for key, value in self.kwargs.items()}
+        return self.function(*args, **kwargs)
 
 
 class BoundExpression(ExpressionBase):
-    def __init__(self, expression, globals_dict=None):
+    def __init__(self, expression):
         if not isinstance(expression, Expression):
             raise TypeError("{} is not an Expression".format(expression))
-        if globals_dict is None:
-            globals_dict = expression_globals()
-        self._globals_dict = globals_dict
         self._expression = expression
         self._compiled_function = None
         self._var_names = set(self._expression.vars())
-
-    @property
-    def globals(self):
-        if self._globals is None:
-            return expression_globals()
-        return self._globals
-
-    @globals.setter
-    def globals(self, globals_d):
-        self._globals = globals_d
 
     @property
     def expression(self):
@@ -999,10 +1002,7 @@ class BoundExpression(ExpressionBase):
 
     def _compile_function(self):
         ce = self._expression.compile_py_expr()
-        # def cfun(subs):
-        #     return  eval(ce, self._globals, subs)
-        # return cfun
-        return lambda subs: eval(ce, self._globals, subs)
+        return lambda subs: eval(ce, EXPRESSION_GLOBALS, subs)
 
     def compile(self):
         self._compiled_function = self._compile_function()
@@ -1016,7 +1016,7 @@ class BoundExpression(ExpressionBase):
     def evaluate(self, substitution):
         efun = self._compiled_function
         if efun is None:
-            gdict = dict(self._globals_dict)
+            gdict = dict(EXPRESSION_GLOBALS)
             gdict.update(substitution)
             return self._expression.evaluate(gdict)
         else:

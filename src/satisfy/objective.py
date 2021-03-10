@@ -27,11 +27,9 @@ class ObjectiveFunction:
         self._expression = ObjectiveExpression(expression)
         self._constraints = constraints
 
-    def compile(self, globals_d):
-        self._expression.globals = globals_d
+    def compile(self):
         self._expression.compile()
         for constraint in self._constraints:
-            constraint.globals = globals_d
             constraint.compile()
 
     def add_solution(self, solution):

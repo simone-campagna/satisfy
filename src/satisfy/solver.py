@@ -7,7 +7,7 @@ import logging
 import random
 
 from .constraint import AllDifferentConstraint, ExpressionConstraint
-from .expression import expression_globals
+from .expression import set_expression_globals
 from .objective import Objective, ObjectiveConstraint
 from .utils import INFINITY, Timer
 
@@ -181,7 +181,6 @@ class StaticVarSelector(VarSelector):
         self.constraints = [[]]
         var_constraints = model_info.var_constraints
         s_bound_var_names = set()
-        m_globals = model_info.model.globals
         compile_constraints = model_info.solver.compile_constraints
         for var_name in reversed(unbound_var_names):
             s_bound_var_names.add(var_name)
@@ -609,7 +608,8 @@ class Solver:
 
     @contextlib.contextmanager
     def __call__(self, model):
-        yield ModelSolver(model, self)
+        with set_expression_globals(model.globals, merge=True):
+            yield ModelSolver(model, self)
 
 
 class State(enum.Enum):
@@ -700,11 +700,9 @@ class ModelSolver:
         groups = {}
         var_groups = collections.defaultdict(list)
         solvable = True
-        m_globals = model.globals
         for objective_function in objective_functions:
-            objective_function.compile(m_globals)
+            objective_function.compile()
         for constraint in itertools.chain(model.constraints(), additional_constraints):
-            constraint.globals = m_globals
             if compile_constraints:
                 constraint.compile()
             c_vars = set(filter(lambda v: v in var_names_set, constraint.vars()))

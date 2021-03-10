@@ -1,3 +1,5 @@
+#!/usr/bin/env satisfy
+
 [begin] [[[
 Replace a, b, c, d, e, f, and g with the decimal digits LOW -> HIGH
 such that the sum of the letters inside of each of the four large squares add up to the same sum.
