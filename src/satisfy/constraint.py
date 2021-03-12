@@ -2,8 +2,10 @@ import abc
 
 from .expression import (
     expression_globals,
-    ExpressionBase,
+    Expression,
+    Const,
     BoundExpression,
+    build_expression,
 )
 
 __all__ = [
@@ -14,55 +16,79 @@ __all__ = [
 ]
 
 
-class FakeCompileMixin:
-    def compile(self):
+class Constraint(abc.ABC):
+    def __init__(self, function, vars=()):
+        self.function = None
+        self.vars = frozenset(vars)
+
+    @abc.abstractmethod
+    def evaluate(substitution):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def is_externally_updated(self):
+        raise NotImplementedError()
+
+    def compile(self, enabled=True):
         pass
 
-
-class Constraint(ExpressionBase):
     def unsatisfied(self, substitution):
-        for var_name in self._var_names:
+        for var_name in self.vars:
             if var_name not in substitution:
                 return False
         return not self.evaluate(substitution)
 
 
-class ConstConstraint(Constraint, FakeCompileMixin):
-    def __init__(self, value):
-        self._value = bool(value)
+class ConstConstraint(Constraint):
+    def __init__(self, satisfied):
+        self._satisfied = satisfied
+        super().__init__(function=self.evaluate, vars=())
+
+    def evaluate(self):
+        return self._satisfied
 
     def is_externally_updated(self):
         return False
 
-    def free_vars(self, substitution):
-        yield from ()
-
-    def evaluate(self, substitution):
-        return self._value
-
     def __repr__(self):
-        return "{}({!r})".format(type(self).__name__, self._value)
-
-    def __str__(self):
-        return str(self._value)
+        return "{}({!r})".format(type(self).__name__, self._satisfied)
 
 
-class AllDifferentConstraint(Constraint, FakeCompileMixin):
-    def __init__(self, var_names):
-        self._var_names = frozenset(var_names)
+class AllDifferentConstraint(Constraint):
+    def __init__(self, vars):
+        super().__init__(function=self.evaluate, vars=vars)
 
     def is_externally_updated(self):
         return False
 
-    def free_vars(self, substitution):
-        yield from self._var_names.difference(substitution.keys())
-
     def evaluate(self, substitution):
-        return len(set(substitution[var_name] for var_name in self._var_names)) == len(self._var_names)
+        return len(set(substitution[var_name] for var_name in self.vars)) == len(self.vars)
 
     def __repr__(self):
-        return "{}({!r})".format(type(self).__name__, sorted(self._var_names))
+        return "{}({!r})".format(type(self).__name__, sorted(self.vars))
 
 
-class ExpressionConstraint(Constraint, BoundExpression):
-    pass
+class ExpressionConstraint(Constraint):
+    def __init__(self, expression):
+        self.expression = build_expression(expression)
+        super().__init__(function=self._get_function(), vars=self.expression.vars)
+
+    def _get_function(self):
+        if self.expression.is_compiled:
+            function = self.expression.compiled_function
+        else:
+            function = self.expression.evaluate
+        return function
+
+    def is_externally_updated(self):
+        return self.expression.is_externally_updated()
+
+    def evaluate(self, substitution):
+        return self.expression(substitution)
+
+    def compile(self, enabled=True):
+        self.expression.compile(enabled)
+        self.function = self._get_function()
+
+    def __repr__(self):
+        return repr(self.expression)

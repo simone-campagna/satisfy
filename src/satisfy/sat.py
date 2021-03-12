@@ -19,7 +19,7 @@ from .expression import (
     FunctionCall, GlobalVariable,
 )
 from .model import Model
-from .solver import Solver, SelectVar, SelectValue
+from .solver import Solver, Algorithm, SelectVar, SelectValue
 from .objective import Maximize, Minimize
 from .utils import safe_call
 from . import expression as _expr
@@ -513,7 +513,11 @@ class Sat:
         self.__objectives.append(OBJECTIVE[objective_name](expression))
 
     def set_sat_option(self, p, option_name, option_value):
-        if option_name == 'select_var':
+        if option_name == 'algorithm':
+            if not hasattr(Algorithm, option_value):
+                raise SatSyntaxError("illegal Algorithm {!r}".format(option_value))
+            self.__solver_options[option_name] = getattr(Algorithm, option_value)
+        elif option_name == 'select_var':
             if not hasattr(SelectVar, option_value):
                 raise SatSyntaxError("illegal SelectVar {!r}".format(option_value))
             self.__solver_options[option_name] = getattr(SelectVar, option_value)
@@ -707,12 +711,16 @@ class SatParser:
 
     def p_code_multiple_lines(self, p):
         '''code : code_line NEWLINE code
+                | empty NEWLINE code
                 | code_line NEWLINE empty
         '''
-        if p[3]:
-            p[0] = p[1] +  p[3]
+        if p[1]:
+            if p[3]:
+                p[0] = p[1] +  p[3]
+            else:
+                p[0] = p[1]
         else:
-            p[0] = p[1]
+            p[0] = p[3]
 
     def p_code_line(self, p):
         '''code_line :

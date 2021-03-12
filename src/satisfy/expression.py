@@ -28,9 +28,13 @@ def prod(values, start=1):
     return start
 
 
+PARAMETERS_NAME = '__parameters__'
+PARAMETERS = {}
+
 EXPRESSION_GLOBALS = {
     'sum': sum,
     'prod': prod,
+    PARAMETERS_NAME: PARAMETERS,
 }
 
 
@@ -62,37 +66,78 @@ class EvaluationError(ExpressionError):
     pass
 
 
-class ExpressionBase(abc.ABC):
-    @abc.abstractmethod
-    def free_vars(self, substitution):
-        raise NotImplementedError()
+def build_expression(value):
+    if isinstance(value, Expression):
+        return value
+    else:
+        return Const(value)
 
+
+class Expression(abc.ABC):
+    def __init__(self, vars, externally_updated=False):
+        self._vars = frozenset(vars)
+        self._compiled_function = None
+        self._externally_updated = bool(externally_updated)
+
+    ### P r o p e r t i e s :
+    @property
     def vars(self):
-        yield from self.free_vars({})
+        return self._vars
 
-    def is_free(self, substitution=None):
-        if substitution is None:
-            substitution = {}
-        for _ in self.free_vars(substitution):
-            return False
-        return True
-
-    @abc.abstractmethod
-    def is_externally_updated(self):
-        raise NotImplementedError()
-
+    ### A b s t r a c t   m e t h o d s :
     @abc.abstractmethod
     def evaluate(self, substitution):
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def py_expr(self):
+        raise NotImplementedError()
 
-class Expression(ExpressionBase):
     @abc.abstractmethod
     def equals(self, other):
         raise NotImplementedError()
 
-    def _sort_key(self):
-        return str(self)
+    ### M e t h o d s :
+    def __call__(self, substitution):
+        c_fun = self._compiled_function
+        if c_fun is None:
+            gdict = dict(EXPRESSION_GLOBALS)
+            gdict.update(substitution)
+            return self.evaluate(gdict)
+        else:
+            return c_fun(substitution)
+
+    def is_externally_updated(self):
+        return self._externally_updated
+
+    def free_vars(self, substitution):
+        return self._vars.difference(substitution)
+
+    def is_free(self, substitution=None):
+        if substitution is None:
+            return not self._vars
+        else:
+            return not self.free_vars(substitution)
+
+    def _compile(self):
+        compiled_expression = self.compile_py_expr()
+        return lambda substitution: eval(compiled_expression, EXPRESSION_GLOBALS, substitution)
+
+    @property
+    def compiled_function(self):
+        return self._compiled_function
+
+    def compile(self, enabled=True):
+        if enabled:
+            self._compiled_function = self._compile()
+        else:
+            self._compiled_function = None
+
+    def is_compiled(self):
+        return self._compiled_function is not None
+
+    def compile_py_expr(self):
+        return compile(self.py_expr(), '<stdin>', 'eval')
 
     @classmethod
     def coerce(cls, val):
@@ -101,29 +146,7 @@ class Expression(ExpressionBase):
         else:
             return Const(val)
 
-    def compile_py_expr(self):
-        return compile(self.py_expr(), '<stdin>', 'eval')
-
-    # def py_source(self):
-    #     alist = list(self.vars())
-    #     alist.append("**__dummy_kwargs")
-    #     return "lambda {}: ({})".format(", ".join(alist), self.py_expr())
-
-    # def compile_py_function(self):
-    #     py_source = self.py_source()
-    #     return eval(py_source, EXPRESSION_GLOBALS)
-
-    # def as_function(self):
-    #     try:
-    #         return self.compile_py_function()
-    #     except:
-    #         LOG.exception("compilation of py function failed:")
-    #     return self.evaluate
-
-    @abc.abstractmethod
-    def py_expr(self):
-        raise NotImplementedError()
-
+    ### O p e r a t o r s :
     # unops:
     def __pos__(self):
         return self
@@ -253,15 +276,19 @@ class Expression(ExpressionBase):
 class Const(Expression):
     def __init__(self, value):
         self._value = value
-
-    def is_externally_updated(self):
-        return False
-
-    def free_vars(self, substitution):
-        yield from ()
+        super().__init__(vars=(), externally_updated=False)
 
     def equals(self, other):
         return type(self) == type(other) and self._get_value() == other.value
+
+    def evaluate(self, substitution):
+        return self._get_value()
+
+    def py_expr(self):
+        return str(self)
+
+    def free_vars(self, substitution):
+        return frozenset()
 
     def _get_value(self):
         return self._value
@@ -270,17 +297,11 @@ class Const(Expression):
     def value(self):
         return self._get_value()
 
-    def evaluate(self, substitution):
-        return self._get_value()
-
     def __repr__(self):
         return "{}({!r})".format(type(self).__name__, self._get_value())
 
     def __str__(self):
         return str(self._get_value())
-
-    def py_expr(self):
-        return str(self)
 
     def __add__(self, other):
         value = self._get_value()
@@ -401,9 +422,6 @@ class InputConst(Const):
     def has_value(self):
         return self._value is not None
 
-    def is_externally_updated(self):
-        return False
-
     def _get_value(self):
         if self._value is None:
             self._value = self.reader()
@@ -415,42 +433,21 @@ class InputConst(Const):
 
 class Collection(Expression):
     def __init__(self, expressions):
-        if False: #self.is_commutative():
-            elist = [self.coerce(expr) for expr in expressions]
-            elist.sort(key=lambda x: x._sort_key())
-            self._expressions = tuple(elist)
-        else:
-            self._expressions = tuple(self.coerce(expr) for expr in expressions)
-        vlist = []
+        self._expressions = tuple(self.coerce(expr) for expr in expressions)
+        vset = set()
         for expr in self._expressions:
-            for var in expr.vars():
-                if var not in vlist:
-                    vlist.append(var)
-        self._vars = tuple(vlist)
-
-    def is_externally_updated(self):
-        return any(expression.is_externally_updated() for expression in self._expressions)
-
-    @classmethod
-    def is_commutative(cls):
-        return False
+            vset.update(expr.vars)
+        externally_updated = any(expr.is_externally_updated() for expr in self._expressions)
+        super().__init__(vars=vset, externally_updated=externally_updated)
 
     def equals(self, other):
-        return type(self) == type(other) and len(self) == len(other) and all(l_e == r_e for l_e, r_e in zip(self, other))
+        return type(self) == type(other) and len(self) == len(other) and all(l_e.equals(r_e) for l_e, r_e in zip(self, other))
 
     def __iter__(self):
         yield from self._expressions
 
     def __len__(self):
         return len(self._expressions)
-
-    def vars(self):
-        yield from self._vars
-
-    def free_vars(self, substitution):
-        for var in self._vars:
-            if var not in substitution:
-                yield var
 
     def __repr__(self):
         return "{}({})".format(
@@ -527,12 +524,6 @@ class UnOp(Collection):
     def __init__(self, operand):
         super().__init__([operand])
 
-    def free_vars(self, substitution):
-        yield from self._expressions[0].free_vars(substitution)
-
-    def evaluate(self, substitution):
-        return self._op(self._expressions[0].evaluate(substitution))
-
     @property
     def operand(self):
         return self._expressions[0]
@@ -546,7 +537,7 @@ class Neg(UnOp):
         return "-({})".format(self.operand)
 
     def py_expr(self):
-        return str(self)
+        return '-{}'.format(self._expressions[0].py_expr())
 
 
 class Abs(UnOp):
@@ -557,7 +548,7 @@ class Abs(UnOp):
         return "abs({})".format(self.operand)
 
     def py_expr(self):
-        return str(self)
+        return 'abs({})'.format(self._expressions[0].py_expr())
 
 
 class BinOp(Collection):
@@ -641,22 +632,13 @@ class Eq(BinOp):
     __symbol__ = '=='
     __py_symbol__ = '=='
 
-    @classmethod
-    def is_commutative(cls):
-        return True
-
     def _op(self, left_value, right_value):
-        print("==", left_value, right_value)
         return left_value == right_value
 
 
 class Ne(BinOp):
     __symbol__ = '!='
     __py_symbol__ = '!='
-
-    @classmethod
-    def is_commutative(cls):
-        return True
 
     def _op(self, left_value, right_value):
         return left_value != right_value
@@ -718,7 +700,7 @@ class Not(UnOp):
         return "^{}".format(self._expressions[0])
 
     def py_expr(self):
-        return "not {}".format(self._expressions[0].py_expr())
+        return "(not {})".format(self._expressions[0].py_expr())
 
 
 class Accumulation(Collection):
@@ -794,10 +776,6 @@ class Accumulation(Collection):
 class Sum(Accumulation):
     __neutral_element__ = 0
 
-    @classmethod
-    def is_commutative(cls):
-        return True
-
     def _has_same_type(self, other):
         return isinstance(other, Sum)
 
@@ -816,10 +794,6 @@ class Prod(Accumulation):
     __neutral_element__ = 1
     __absorbing_element__ = 0
 
-    @classmethod
-    def is_commutative(cls):
-        return True
-
     def _has_same_type(self, other):
         return isinstance(other, Prod)
 
@@ -834,30 +808,30 @@ class Prod(Accumulation):
         return self._as_str(op='*', fun='prod', convert=lambda x: x.py_expr())
 
 
-class Variable(Expression):
-    def __init__(self, name):
+class NamedMixin:
+    def __init__(self, name, *args, **kwargs):
         if not isinstance(name, str):
             raise TypeError("bad name {}".format(name))
         self._name = name
-
-    def equals(self, other):
-        return type(self) == type(other) and self._name == other.name
+        super().__init__(*args, **kwargs)
 
     @property
     def name(self):
         return self._name
 
-    def is_externally_updated(self):
-        return False
 
-    def free_vars(self, substitution):
-        if self._name not in substitution:
-            yield self._name
+class Variable(NamedMixin, Expression):
+    def __init__(self, name):
+        super().__init__(vars=[name], externally_updated=False, name=name)
+
+    def equals(self, other):
+        return type(self) == type(other) and self._name == other.name
 
     def evaluate(self, substitution):
         if self._name in substitution:
             return substitution[self._name]
         else:
+            # print(substitution, self.vars, self.is_free(substitution))
             raise EvaluationError("undefined variable {}".format(self._name))
 
     def __str__(self):
@@ -872,52 +846,9 @@ class Variable(Expression):
         return self._name
 
 
-class Parameter(Variable):
-    def __init__(self, name, value):
-        super().__init__(name)
-        self._value = value
-
-    @property
-    def value(self):
-        return self._value
-
-    @value.setter
-    def value(self, v):
-        self._value = v
-
-    def free_vars(self):
-        yield from ()
-
-    def vars(self):
-        yield from ()
-
-    def evaluate(self, substitution):
-        return self._value
-
-    def py_expr(self):
-        return str(self._value)
-
-
-def build_expression(value):
-    if isinstance(value, Expression):
-        return value
-    else:
-        return Const(value)
-
-
-class GlobalVariable(Expression):
+class GlobalVariable(NamedMixin, Expression):
     def __init__(self, name):
-        super().__init__()
-        self.name = name
-
-    def is_externally_updated(self):
-        return True
-
-    def is_free(self, substitution=None):
-        return True
-
-    def free_vars(self, substitution):
-        yield from ()
+        super().__init__(vars=[], externally_updated=True, name=name)
 
     def equals(self, other):
         return type(self) == type(other) and self.name == other.name
@@ -926,22 +857,53 @@ class GlobalVariable(Expression):
         return self.name
 
     def evaluate(self, substitution):
-        return EXPRESSION_GLOBALS[self.name]
+        name = self.name
+        if name in substitution:
+            return substitution[name]
+        return EXPRESSION_GLOBALS[name]
+
+    def __repr__(self):
+        return '{}({!r})'.format(type(self).__name__, self.name)
 
 
-class FunctionCall(Expression):
+class Parameter(NamedMixin, Expression):
+    def __init__(self, name, value):
+        super().__init__(vars=[], externally_updated=True, name=name)
+        PARAMETERS[self.name] = value
+
+    def equals(self, other):
+        return type(self) == type(other) and self.name == other.name
+
+    def py_expr(self):
+        return '{}[{!r}]'.format(PARAMETERS_NAME, self.name)
+
+    @property
+    def value(self):
+        return PARAMETERS[self.name]
+
+    @value.setter
+    def value(self, v):
+        PARAMETERS[self.name] = v
+
+    def evaluate(self, substitution):
+        return PARAMETERS[self.name]
+
+    def __repr__(self):
+        return '{}({!r})'.format(type(self).__name__, self.name)
+
+
+class FunctionCall(NamedMixin, Expression):
     def __init__(self, name, args, kwargs):
-        super().__init__()
-        self.name = name
         self.args = [build_expression(arg) for arg in args]
         self.kwargs = {key: build_expression(value) for key, value in kwargs.items()}
+        vset = set()
+        for expr in itertools.chain(self.args, self.kwargs.values()):
+            vset.update(expr.vars)
+        super().__init__(vars=vset, externally_updated=True, name=name)
 
     @property
     def function(self):
         return EXPRESSION_GLOBALS[self.name]
-
-    def is_externally_updated(self):
-        return True
 
     def is_free(self, substitution=None):
         for arg in itertools.chain(self.args, self.kwargs.values()):
@@ -981,55 +943,40 @@ class FunctionCall(Expression):
         kwargs = {key: value.evaluate(substitution) for key, value in self.kwargs.items()}
         return self.function(*args, **kwargs)
 
+    def __repr__(self):
+        return '{}({!r}, {!r}, {!r})'.format(type(self).__name__, self.name, self.args, self.kwargs)
 
-class BoundExpression(ExpressionBase):
+
+class BoundExpression(Expression):
     def __init__(self, expression):
         if not isinstance(expression, Expression):
             raise TypeError("{} is not an Expression".format(expression))
         self._expression = expression
-        self._compiled_function = None
-        self._var_names = set(self._expression.vars())
+        super().__init__(vars=self._expression.vars,
+                         externally_updated=self._expression.is_externally_updated())
+
+    def equals(self, other):
+        return type(self) == type(other) and self._expression.equals(other.expression)
+
+    def py_expr(self):
+        return self._expression.py_expr()
 
     @property
     def expression(self):
         return self._expression
 
-    def is_externally_updated(self):
-        return self._expression.is_externally_updated()
-
-    def is_compiled(self):
-        return self._compiled_function is not None
-
-    def _compile_function(self):
-        ce = self._expression.compile_py_expr()
-        return lambda subs: eval(ce, EXPRESSION_GLOBALS, subs)
-
-    def compile(self):
-        self._compiled_function = self._compile_function()
-
-    @property
-    def compiled_function(self):
-        if self._compiled_function is None:
-            self._compiled_function = self.compile_function()
-        return self._compiled_function
+    def compile(self, enabled=True):
+        self._expression.compile(enabled=enabled)
+        self._compiled_function = enabled
 
     def evaluate(self, substitution):
-        efun = self._compiled_function
-        if efun is None:
-            gdict = dict(EXPRESSION_GLOBALS)
-            gdict.update(substitution)
-            return self._expression.evaluate(gdict)
-        else:
-            return efun(substitution)
+        return self._expression.evaluate(substitution)
+
+    def __call__(self, substitution):
+        return self._expression(substitution)
 
     def __repr__(self):
         return "{}({!r})".format(type(self).__name__, self._expression)
 
     def __str__(self):
         return str(self._expression)
-
-    def free_vars(self, substitution):
-        return self._var_names.difference(substitution)
-
-    def vars(self):
-        return self._var_names

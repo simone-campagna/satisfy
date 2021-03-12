@@ -1,0 +1,16 @@
+
+
+a, b, c :: [1:9]
+
+
+a + b == 5
+a == b - 1
+a + b + c == 9
+
+all_different(a, b, c)
+
+option(select_var, min_domain)
+
+[solution] [[[
+=== a={a} b={b} c={c}
+]]]

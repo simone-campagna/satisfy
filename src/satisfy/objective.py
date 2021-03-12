@@ -76,8 +76,6 @@ class MinMaxConstraint(ObjectiveConstraint):
     def set_bound(self, value):
         self._not_set.value = 0
         self._bound.value = value
-        if self.is_compiled():
-            self.compile()
 
 
 class MinConstraint(MinMaxConstraint):

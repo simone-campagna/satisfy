@@ -2,7 +2,7 @@ import collections
 import itertools
 
 from .model import Model
-from .solver import Solver, SelectVar, StaticVarSelector, SelectValue
+from .solver import Solver, SelectVar, StaticVarSelector, SelectValue, Algorithm
 
 __all__ = [
     'Nonogram',
@@ -77,6 +77,7 @@ class Nonogram(Model):
                         constraint = var > prev_var + var_infos[prev_var.name].size
                         self.add_constraint(constraint)
                     cur_vars.append(var)
+                self.add_all_different_constraint(cur_vars)
 
         # add col vars and constraints:
         col_vars = [[] for c in range(num_cols)]
@@ -99,6 +100,7 @@ class Nonogram(Model):
                         constraint = var > prev_var + var_infos[prev_var.name].size
                         self.add_constraint(constraint)
                     cur_vars.append(var)
+                self.add_all_different_constraint(cur_vars)
 
         # add row<>col constraints:
         for r in range(num_rows):

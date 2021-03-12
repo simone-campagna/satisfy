@@ -131,7 +131,7 @@ The command has bash autocompletion; to enable it run this command:
         'source_file',
         type=argparse.FileType('r'),
         default=sys.stdin,
-        help='SAT source file (defaults to STDIN)')
+        help='SAT source file (defaults to STDIN)').completer = argcomplete.completers.FilesCompleter(allowednames=['*.sat'], directories=False)
 
     add_solve_arguments(sat_parser)
     sat_parser.add_argument(

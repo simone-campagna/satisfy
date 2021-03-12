@@ -151,7 +151,7 @@ class Model(object):
             constraint = ExpressionConstraint(constraint)
         elif not isinstance(constraint, Constraint):
             raise TypeError("{} is not a valid constraint".format(constraint))
-        var_names = tuple(constraint.vars())
+        var_names = tuple(constraint.vars)
         if not var_names:
             value = constraint.evaluate({})
             if value:
