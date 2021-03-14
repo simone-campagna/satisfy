@@ -1,6 +1,3 @@
-import collections
-import itertools
-
 from .model import Model
 from .solver import Solver, SelectVar, StaticVarSelector, SelectValue, Algorithm
 

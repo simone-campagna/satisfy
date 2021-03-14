@@ -56,6 +56,17 @@ def image_to_pixmap(image, zeroes=ZEROES):
         for c, cell in enumerate(line):
             if cell not in zeroes:
                 pixmap[r][c] = 1
+    while all(x == 0 for x in pixmap[0]):
+        del pixmap[0]
+    while all(x == 0 for x in pixmap[-1]):
+        del pixmap[-1]
+    num_rows = len(pixmap)
+    while all(pixmap[r][0] == 0 for r in range(num_rows)):
+        pixmap = [row[1:] for row in pixmap]
+        num_cols -= 1
+    while all(pixmap[r][-1] == 0 for r in range(num_rows)):
+        pixmap = [row[:-1] for row in pixmap]
+        num_cols -= 1
     return pixmap
 
 
