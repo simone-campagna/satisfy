@@ -462,6 +462,25 @@ class DynGroupPrioVarSelector(DynamicVarSelector):
         return unbound_var_names.pop(-1)
 
 
+# @SelectVar.__register__('dyn_min_bound')
+# class DynGroupPrioVarSelector(DynamicVarSelector):
+#     def preferred_algorithm(self):
+#         return Algorithm.propagate
+# 
+#     def sort_var_names(self, substitution, bound_var_names, unbound_var_names, model_info):
+#         var_map = model_info.var_map
+#         #unbound_var_names.sort(key=lambda v: key_function(var_map[v].values()), reverse=self.__reverse__)
+#         #var_group_prio = model_info.var_group_prio
+#         #var_bounds = model_info.var_bounds
+#         var_domains = model_info.domains
+#         # unbound_var_names.sort(key=lambda v: (len(var_domains[v]), var_group_prio[v], var_bounds[v]), reverse=True)
+#         unbound_var_names.sort(key=lambda v: (count_min(var_map[v].values()), len(var_domains[v])), reverse=True)
+# 
+#     def select_var(self, substitution, bound_var_names, unbound_var_names, model_info):
+#         self.sort_var_names(substitution, bound_var_names, unbound_var_names, model_info)
+#         return unbound_var_names.pop(-1)
+
+
 # class DistanceVarSelector(StaticVarSelector):
 #     __reverse__ = None
 #
