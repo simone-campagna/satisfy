@@ -11,41 +11,6 @@ __all__ = [
 ]
 
 
-VarInfo = collections.namedtuple('VarInfo', 'size start_value end_value')
-    
-
-# @SelectVar.__register__('nonogram')
-# class NonogramVarSelector(StaticVarSelector):
-#     def sort_var_names(self, unbound_var_names, model_info):
-#         model = model_info.model
-#         num_rows, num_cols = model.shape
-#         row_vars = model.row_vars
-#         col_vars = model.col_vars
-#         var_infos = model.var_infos
-#         var_value = {}
-#         for r, r_vars in enumerate(row_vars):
-#             for var in r_vars:
-#                 var_value[var.name] = len(r_vars)
-#         for c, c_vars in enumerate(col_vars):
-#             for var in c_vars:
-#                 var_value[var.name] = len(c_vars)
-#         key_fn = lambda v: var_value[v]
-#         all_vars = sorted(var_value, key=key_fn, reverse=True)
-#         unbound_var_names.clear()
-# 
-#         def var_key_fn(v):
-#             v_infos = var_infos[v]
-#             return v_infos.end_value - v_infos.start_value
-# 
-#         for dummy, var_group in itertools.groupby(all_vars, key=key_fn):
-#             var_group = list(var_group)
-#             print("...", dummy, var_group)
-#             var_group.sort(key=var_key_fn, reverse=True)
-#             print("  .", dummy, var_group)
-#             unbound_var_names.extend(var_group)
-#         print(unbound_var_names)
-            
-        
 class Stripe:
     def __init__(self, start_begin, start_end, size):
         self.start_begin = start_begin
@@ -100,7 +65,7 @@ class Nonogram(Model):
         cols = nonogram['columns']
         num_rows = len(rows)
         num_cols = len(cols)
-        var_infos = {}
+        var_stripes = {}
 
         # matrix of known points:
         r_matrix = []
@@ -192,13 +157,10 @@ class Nonogram(Model):
             for k, stripe in enumerate(stripes):
                 domain = stripe.domain()
                 var = self.add_int_variable(name='r{}_{}'.format(r, k), domain=domain)
-                var_infos[var.name] = VarInfo(
-                    size=stripe.size,
-                    start_value=stripe.start_begin,
-                    end_value=stripe.start_end + stripe.size)
+                var_stripes[var.name] = stripe
                 if cur_vars:
                     prev_var = cur_vars[-1]
-                    constraint = var > prev_var + var_infos[prev_var.name].size
+                    constraint = var > prev_var + var_stripes[prev_var.name].size
                     self.add_constraint(constraint)
                 cur_vars.append(var)
             if cur_vars:
@@ -211,13 +173,10 @@ class Nonogram(Model):
             for k, stripe in enumerate(stripes):
                 domain = stripe.domain()
                 var = self.add_int_variable(name='c{}_{}'.format(k, c), domain=domain)
-                var_infos[var.name] = VarInfo(
-                    size=stripe.size,
-                    start_value=stripe.start_begin,
-                    end_value=stripe.start_end + stripe.size)
+                var_stripes[var.name] = stripe
                 if cur_vars:
                     prev_var = cur_vars[-1]
-                    constraint = var > prev_var + var_infos[prev_var.name].size
+                    constraint = var > prev_var + var_stripes[prev_var.name].size
                     self.add_constraint(constraint)
                 cur_vars.append(var)
             if cur_vars:
@@ -228,20 +187,16 @@ class Nonogram(Model):
             for c in range(num_cols):
                 r_expr_list = []
                 for var in row_vars[r]:
-                    size = var_infos[var.name].size
-                    var_info = var_infos[var.name]
-                    if var_info.start_value <= c < var_info.end_value:
+                    var_stripe = var_stripes[var.name]
+                    size = var_stripe.size
+                    if c in var_stripe:
                         r_expr_list.append((var <= c) & (c < var + size))
-                    # else:
-                    #     print("r: {}: discard {} ({})".format(var.name, c, var_info), self.get_var_domain(var))
                 c_expr_list = []
                 for var in col_vars[c]:
-                    size = var_infos[var.name].size
-                    var_info = var_infos[var.name]
-                    if var_info.start_value <= r < var_info.end_value:
+                    var_stripe = var_stripes[var.name]
+                    size = var_stripe.size
+                    if r in var_stripe:
                         c_expr_list.append((var <= r) & (r < var + size))
-                    # else:
-                    #     print("c: {}: discard {} ({})".format(var.name, r, var_info), self.get_var_domain(var))
                 if r_expr_list or c_expr_list:
                     if r_expr_list:
                         r_expr = sum(r_expr_list)
@@ -255,7 +210,7 @@ class Nonogram(Model):
                     self.add_constraint(constraint)
 
         # instance attributes:
-        self._var_infos = var_infos
+        self._var_stripes = var_stripes
         self._shape = (num_rows, num_cols)
         self._row_vars = row_vars
         self._col_vars = col_vars
@@ -273,8 +228,8 @@ class Nonogram(Model):
         return self._col_vars
 
     @property
-    def var_infos(self):
-        return self._var_infos
+    def var_stripes(self):
+        return self._var_stripes
 
     def solver(self, **kwargs):
         return Solver(
@@ -294,12 +249,12 @@ class Nonogram(Model):
     def create_pixmap(self, solution):
         num_rows, num_cols = self._shape
         row_vars = self._row_vars
-        var_infos = self._var_infos
+        var_stripes = self._var_stripes
         pixmap = [[0 for _ in range(num_cols)] for _ in range(num_rows)]
         for r, cur_vars in enumerate(row_vars):
             for var in cur_vars:
                 start = solution[var.name] 
-                size = var_infos[var.name].size
+                size = var_stripes[var.name].size
                 for c in range(start, start + size):
                     pixmap[r][c] = 1
         return pixmap
