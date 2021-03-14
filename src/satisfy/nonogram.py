@@ -71,6 +71,7 @@ class Nonogram(Model):
             r_matrix.append([0] * num_cols)
             c_matrix.append([0] * num_cols)
 
+        stripe2var = {}
         # inspect rows:
         row_stripes = []
         for r, row in enumerate(rows):
@@ -154,6 +155,7 @@ class Nonogram(Model):
             for k, stripe in enumerate(stripes):
                 domain = stripe.domain()
                 var = self.add_int_variable(name='r{}_{}'.format(r, k), domain=domain)
+                stripe2var[stripe] = var
                 var_stripes[var.name] = stripe
                 if cur_vars:
                     prev_var = cur_vars[-1]
@@ -170,6 +172,7 @@ class Nonogram(Model):
             for k, stripe in enumerate(stripes):
                 domain = stripe.domain()
                 var = self.add_int_variable(name='c{}_{}'.format(k, c), domain=domain)
+                stripe2var[stripe] = var
                 var_stripes[var.name] = stripe
                 if cur_vars:
                     prev_var = cur_vars[-1]
@@ -206,6 +209,33 @@ class Nonogram(Model):
                     constraint = (sum(r_expr_list) == sum(c_expr_list))
                     self.add_constraint(constraint)
 
+        # sort variables:
+        ordered_stripes = []
+        row_stripes = [stripes[:] for stripes in row_stripes]
+        col_stripes = [stripes[:] for stripes in col_stripes]
+        c_offset = 0
+        while True:
+            row_lst = []
+            for r_stripes in row_stripes:
+                if r_stripes:
+                    row_lst.append(r_stripes.pop(0))
+            if not row_lst:
+                break
+            ordered_stripes.extend(row_lst)
+            cols = []
+            while col_stripes:
+                if any(c_offset in stripe for stripe in row_lst):
+                    cols.append(col_stripes.pop(0))
+                    c_offset += 1
+                else:
+                    break
+            cols.sort(key=lambda x: sum(s.size for s in x), reverse=True)
+            for c_stripes in cols:
+                ordered_stripes.extend(c_stripes)
+        ordered_vars = [stripe2var[stripe] for stripe in ordered_stripes]
+        var_pos = {id(var): ordered_vars.index(var) for var in ordered_vars}
+        self.sort_variables(key=lambda var_info: var_pos[id(var_info.variable)])
+
         # instance attributes:
         self._var_stripes = var_stripes
         self._shape = (num_rows, num_cols)
@@ -232,6 +262,7 @@ class Nonogram(Model):
         return Solver(
             select_var=kwargs.pop('select_var', SelectVar.min_domain),
             select_value=kwargs.pop('select_value', SelectValue.min_value),
+            # algorithm=kwargs.pop('algorithm', 'propagate'),
             **kwargs
         )
 

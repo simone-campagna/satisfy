@@ -1,5 +1,6 @@
 import copy
 import collections
+import itertools
 import keyword
 import logging
 import re
@@ -134,6 +135,21 @@ class Model(object):
             variable=variable,
             domain=domain)
         return variable
+
+    def sort_variables(self, key):
+        variables = []
+        parameters = []
+        for var_name, var_info in self.__variables.items():
+            if var_info.domain:
+                variables.append((var_name, var_info))
+            else:
+                parameters.append((var_name, var_info))
+        variables.sort(key=lambda x: key(x[1]))
+        new_variables = collections.OrderedDict()
+        for var_name, var_info in itertools.chain(variables, parameters):
+            new_variables[var_name] = var_info
+        self.__variables = new_variables
+        self.__variables_proxy = types.MappingProxyType(self.__variables)
 
     def add_bool_variable(self, *, name=None):
         return self.add_int_variable(domain=(0, 1), name=name)
